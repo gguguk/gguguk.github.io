@@ -314,7 +314,7 @@ class CustomModel(tf.keras.Model):
         return {m.name: m.result() for m in self.metrics}
 ```
 
-- tf.GradientTape()
+- tf.GradientTape(): 테스트
 - 
 
 <br>
