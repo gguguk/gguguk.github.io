@@ -4,5 +4,4 @@ icon: fas fa-info
 order: 4
 ---
 
-
-> **Note**: Add Markdown syntax content to file `_tabs/about.md` and it will show up on this page.
+추천시스템과 자연어처리를 좋아하는 주니어 데이터사이언티스트 **구국원**이라고 합니다.
