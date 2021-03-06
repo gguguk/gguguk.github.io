@@ -15,9 +15,9 @@ timezone: Asia/Seoul
 
 # jekyll-seo-tag settings › https://github.com/jekyll/jekyll-seo-tag/blob/master/docs/usage.md
 # --------------------------
-title: Gukwon Koo                          # the main title
+title: 생각과 고민                          # the main title
 
-tagline: Junior Data Scientist   # it will display as the sub-title
+tagline: Junior Data Scientist.   # it will display as the sub-title
 
 description: >-                        # used by seo meta and the atom feed
   All About Data Science.
