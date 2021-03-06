@@ -11,7 +11,7 @@ date: 2021-02-17 21:26:00 +0900
 
 ![](https://miro.medium.com/max/4928/1*-QTg-_71YF0SVshMEaKZ_g.png)
 
-최근에 python2 + tensorflow 1.x로 작성된 추천 시스템 레거시 코드를 유지 보수 및 개선하는 업무를 진행하고 있습니다. 기존 코드는 tensorflow 1.x 버전으로 짜여져 있어서 API의 통일성이 부족했고, 오픈 소스 코드를 기반으로 필요한 컴포넌트를 추가하는 식으로 하다보니 코드의 일관성도 많이 저해된 상태였습니다. 따라서 유지 보수의 용이성을 확보하기 위해 tensorflow를 2.0 버전으로 코드를 변환해야겠다는 결심을 하게 되었습니다. tensorflow 공식 문서에서 tensorflow 2.0 버전의 특징을 4가지로 요약하였습니다. 
+최근에 python2 + tensorflow 1.x로 작성된 추천 시스템 레거시 코드를 유지 보수 및 개선하는 업무를 진행하고 있습니다. 기존 코드는 tensorflow 1.x 버전으로 짜여져 있어서 API의 통일성이 부족했고, 오픈 소스 코드에 기반하여 상황 마다 필요한 컴포넌트를 추가 하다보니 코드의 일관성도 많이 저해된 상태였습니다. 따라서 유지 보수의 용이성을 확보하기 위해 tensorflow를 2.0 버전으로 코드를 변환해야겠다는 결심을 하게 되었습니다. tensorflow 공식 문서에서는 tensorflow 2.0 버전의 특징이 다음의 네 가지로 요약되어 있습니다. 가독성이 향상되고, 디버깅도 편해질 것 같군요!
 
 - [API Cleanup](https://www.tensorflow.org/guide/effective_tf2#api_cleanup)
 - [Eager execution](https://www.tensorflow.org/guide/effective_tf2#eager_execution)
@@ -20,7 +20,7 @@ date: 2021-02-17 21:26:00 +0900
 
 <br>
 
-특히 저는 깔끔하면서도 정형화된 형태로 tf 코드를 작성하고, 필요하다면 low-level로 layer를 커스터마이징할 수 있어야 했으므로 tensorflow 2.0 + keras layer 조합으로 코드를 작성하였습니다. 본 글에서는 이와 관련된 내용을 공부하면서 얻은 지식과 몇가지 팁을 다음의 내용을 중심으로 정리해보겠습니다.
+특히 저는 깔끔하면서도 정형화된 형태로 tf 코드를 작성하고, 필요하다면 low-level로 layer를 커스터마이징할 수 있어야 했으므로 tensorflow 2.0 + keras layer 조합으로 코드를 작성하였습니다. 본 글에서는 이와 관련된 내용을 공부하면서 얻은 지식을 다음의 내용을 중심으로 정리해보겠습니다.
 
 - custom layer class
 - custom loss class
@@ -268,16 +268,19 @@ class Decoder(tf.keras.layers.Layer):
 class VariationalAutoEncoder(tf.keras.Model):
     def __init__(self, original_dim, ...):
         super(VariationalAutoEncoder, self).__init__(...)
-        ...
+        self.encoder = Encoder(...)
+        self.decoder = Decoder(...)
 
     def call(self, inputs):
-        reconstructed = ...
-        return reconstructed
+        x = self.encoder(...)
+        y = self.decoder(...)
+        ...
+        return output
 ```
 
 <br>
 
-# Custom Training Loop
+# 4 &nbsp; Custom Training Loop
 
 ---
 
@@ -290,17 +293,28 @@ training loop를 작성하는 방법은 크게 두가지입니다.
 
 첫번째 방식은 코드를 작성하는 사람의 입맛에 맞게 매우 자유롭게 코드를 작성할 수 있다는 장점이 있지만, 그에 비례해서 코드 작성 과정에서 human error가 발생할 가능성이 높아집니다. 저는 자유롭게 코드를 작성할 수 있으면서도 `model.fit()`의 편리한 장점을 취하여 human error를 최소화 할 수 있는 두번째 방식으로 custom training loop를 작성하는 방법을 설명해드리고자 합니다.
 
+<br>
+
+섹션3에서 언급한 model class에 `train_step()` 메서드를 활용하면 됩니다. 코드는 다음과 같은 방식으로 작성하시면 됩니다. 보다 자세한 내용은 [공식 문서](https://www.tensorflow.org/guide/keras/customizing_what_happens_in_fit#a_first_simple_example)를 참조해주세요.
+
+- tf.keras.Model을 상속 받아 model class를 만듭니다.
+- model class에 `train_step()` 메서드를 작성합니다. `model.fit()`는 이 메서드를 활용하여 학습이 진행되도록 디자인 되어 있습니다.
+- `tf.GradientTape` API는 [자동 미분(automatic differentiation)](https://www.tensorflow.org/guide/autodiff#automatic_differentiation_and_gradients) 기능을 제공합니다. 따라서 우리는 `train_step()` 메서드의 로직 작성 순서만 고려하면 됩니다.
+
 ```python
 class CustomModel(tf.keras.Model):
+    def __init__(self):
+        ...
+    def call(self):
+        ...
     def train_step(self, data):
-        # Unpack the data. Its structure depends on your model and
-        # on what you pass to `fit()`.
+        # Unpack the data. Its structure depends on your model and on what you pass to `fit()`.
         x, y = data
 
         with tf.GradientTape() as tape:
-            y_pred = self(x, training=True)  # Forward pass
-            # Compute the loss value
-            # (the loss function is configured in `compile()`)
+            # Forward pass
+            y_pred = self(x, training=True)  
+            # Compute the loss value (the loss function is configured in `compile()`)
             loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses)
 
         # Compute gradients
@@ -314,10 +328,45 @@ class CustomModel(tf.keras.Model):
         return {m.name: m.result() for m in self.metrics}
 ```
 
-- tf.GradientTape(): 테스트 테스트
-- 
+train_step() 메서드는 다음과 같은 순서로 진행됩니다.
+
+- **computation 기록**
+
+  `tf.GradientTape()` 컨텍스트 내부의 연산은 추적되어서 이후 자동 미분이 가능하게 됩니다.
+
+- **forward pass** 
+
+  model class의 `call()` 메서드를 활용해서 모델의 예측값을 계산합니다.
+
+- **compute loss**
+
+  `model.compile()` 메서드에 전달한 loss 함수로 loss가 계산됩니다.
+
+- **compute gradients**
+
+  후진 방식 자동 미분(reverse mode differentiation)을 사용해 기록된 연산의 gradient를 계산합니다.
+
+- **update weights**
+
+  계산된 gradient와 `model.compile()` 메서드에 전달한 optimizer를 활용해 weight를 업데이트 합니다.
+
+- **update metrics**
+
+  현재 step에서의 metrics를 계산합니다.
+
+- **return metric dictionary**
+
+  training step 마다 계산된 metrics를 progress bar에 출력하기 위해 해당 딕셔너리를 return 합니다.
 
 <br>
+
+# 5 &nbsp; Conclusion
+
+tf.keras를 커스텀 하는 방법은 매우 다양하고 알아야 되는 개념도 많다는 것을 알게 되었습니다. 특히 저는 keras built-in function들을 최대한 활용할 수 있는 방안을 고민하면서 많은 시행착오를 겪었고 그 결과 제가 체득한 가장 최선의 시나리오(?)를 정리하였습니다. 다만 최대한 쉽게 작성하려고는 했으나, 애초에 알아야할 개념들이 많이 있어서 글 자체의 난이도 조절에는 실패해버린 것 같습니다...
+
+업무를 어느 정도 일단락 하고 지난 일들을 돌이켜 보면 keras built-in function을 활용한다는 것이 양날이 검이 될 수도 있다는 생각이 들었습니다. 딥러닝 코드에서 어느 정도 정형화된 부분은 keras built-in function을 활용하면 human error를 줄일 수 있는 것은 확실한 장점이라고 생각합니다. 그러나 정말 모든 것을 low-level로 하고 싶은신 분들에게는 어느 정도 규격화된 틀이 있다는 것이 답답하게 느껴질 수도 있을 것 같습니다. 특히 pytorch를 사용하셨던 분들에게는 더욱 크게 다가올 것 같네요.
+
+아 그리고 이 글에서 담지 못한 이야기들도 많이 있는데요. metric로 커스터마이징이 가능하고, 만들어진 모델을 tf.serving container를 활용해서 API 서버를 구축하시려면 tf.graph에 대한 개념 이해도 필요합니다. 추후에 기회가 되면 이 부분도 다뤄보겠습니다.
 
 # Reference
 
@@ -333,6 +382,7 @@ class CustomModel(tf.keras.Model):
 - [tensorflow custom loss](https://junstar92.tistory.com/144?category=905975)
 - [Losses (keras.io)](https://keras.io/api/losses/#creating-custom-losses)
 - [The Sequential model](https://www.tensorflow.org/guide/keras/sequential_model)
+- [Introduction to gradients and automatic differentiation](https://www.tensorflow.org/guide/autodiff)
 - [파이썬 강좌 번외편. 클로저(Closure)](https://blog.hexabrain.net/347)
 - [클로져(Closure) 이해하기](https://whatisthenext.tistory.com/112?category=761276)
 - [Python의 Closure에 대해 알아보자](https://shoark7.github.io/programming/python/closure-in-python)
