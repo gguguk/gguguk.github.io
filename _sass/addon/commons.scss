@@ -82,6 +82,7 @@ $scrollbar-size: 7px;
 h1 {
   @extend %heading;
 
+
   font-size: 1.8rem;
 }
 
@@ -90,7 +91,7 @@ h2 {
   @extend %section;
   @extend %anchor;
 
-  font-size: 1.4rem;
+  font-size: 1.8rem;
 }
 
 h3 {
@@ -98,7 +99,7 @@ h3 {
   @extend %section;
   @extend %anchor;
 
-  font-size: 1.25rem;
+  font-size: 1.4rem;
 }
 
 h4 {
@@ -106,7 +107,7 @@ h4 {
   @extend %section;
   @extend %anchor;
 
-  font-size: 1.15rem;
+  font-size: 1.24rem;
 }
 
 h5 {
@@ -114,7 +115,7 @@ h5 {
   @extend %section;
   @extend %anchor;
 
-  font-size: 1.1rem;
+  font-size: 1.15rem;
 }
 
 ol,
