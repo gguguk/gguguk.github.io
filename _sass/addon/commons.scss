@@ -660,6 +660,7 @@ $sidebar-display: "sidebar-display";
   }
 
   #avatar {
+    padding-bottom: 20px;
     &:hover > a {
       border-color: #fff;
     }
@@ -675,6 +676,7 @@ $sidebar-display: "sidebar-display";
       -webkit-transition: border-color 0.35s ease-in-out;
       -moz-transition: border-color 0.35s ease-in-out;
       transition: border-color 0.35s ease-in-out;
+      // padding-bottom: 20px;
     }
 
     img {
