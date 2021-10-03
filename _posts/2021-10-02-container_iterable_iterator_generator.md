@@ -73,7 +73,7 @@ print('a' in 'abc')  # True
 
 ---
 
-iterable은 원소를 한번에 하나씩 반환할 수 있는 객체입니다. 모든 sequence와 일부 non-sequence가 해당됩니다.
+**iterable은 원소를 한번에 하나씩 반환할 수 있는 객체입니다.** 모든 sequence와 일부 non-sequence가 해당됩니다.
 
 - Sequence
   - list
@@ -101,9 +101,9 @@ print(next(li))  # TypeError: 'list' object is not an iterator
 
 ---
 
-**iterator란 순차적으로 원소를 하나씩 꺼내올 수 있는 객체**를 뜻합니다. `next()` 메소드를 이용해서 원소를 하나씩 꺼내옵니다. 만약 더이상 꺼내올 데이터가 없다면 `StopIteration` 에러를 발생합니다. iterable 컨테이너는 `__iter__()` 매직 메소드를 통해 iterator가 됩니다. iterator가 되었을 때 비로소 원소를 하나씩 꺼내오는 행위를 할 수 있게 됩니다.
+**iterator란 순차적으로 원소를 하나씩 꺼내올 수 있는 객체**를 뜻합니다. 실제로 원소를 꺼내올 때는 `next()` 메소드를 이용해서 원소를 하나씩 꺼내옵니다. 만약 더이상 꺼내올 데이터가 없다면 `StopIteration` 에러를 발생시킵니다. iterable 컨테이너는 `__iter__()` 매직 메소드를 통해 iterator가 될 수 있습니다. iterator가 되었을 때 비로소 원소를 하나씩 꺼내오는 행위를 할 수 있게 됩니다.
 
-iterable 객체인 list는 그 자체로는 원소를 하나씩 꺼내오지 못하는데요. iterator로 변환하면 가능합니다.
+iterable 객체인 `list`는 그 자체로는 원소를 하나씩 꺼내오지 못하는데요. iterator로 변환하면 가능합니다.
 
 ```python
 li = [1, 2, 3]
