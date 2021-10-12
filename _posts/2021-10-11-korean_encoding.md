@@ -17,6 +17,8 @@ date: 2021-10-11 16:12:00 +0900
 
 이처럼 문자 인코딩은 우리를 괴롭게 할만큼 매우 중요하지만, 깊게 파보면 정말 어려운 주제 중에 하나인 것 같습니다. 본 글 보다 더욱 이론적 관점에서 자세한 글들은 얼마든지 많으니 자세한 설명을 원하시는 분들께서는 레퍼런스를 참고해주세요. 본 글에서는 여러가지 문자 인코딩 방식 중에서 가장 대표적인 ASCII, Unicode에 대해서 살펴보고 파이썬의 한글 인코딩 방식을 통해 실용적인 관점에서 한글 인코딩을 정리 해보려고합니다.
 
+본격적으로 글을 시작 하기 앞서, 문자 인코딩은 무엇이며 왜 필요한지에 대한 글은 [여기](https://gguguk.github.io/posts/cs50_computational_thinking/)를 참조해주세요.
+
 <br>
 
 ## ASCII(American Standard Code for Information Interchange)
@@ -132,29 +134,39 @@ UTF-8의 인코딩 방식을 예시로 살펴봅시다. UTF-8은 아래의 테�
 
 ---
 
-파이썬의 모든 문자열은 **유니코드**입니다. 
+파이썬3의 모든 문자열은 **유니코드**입니다. 
 
-> 파이썬 3.0부터는 언어의 [`str`](https://docs.python.org/ko/3/library/stdtypes.html#str) 형은 유니코드 문자를 포함하고, 이는 어떤 문자열이든 `"unicode rocks!"`, `'unicode rocks!'` 또는 삼중 따옴표로 묶인 문자열 문법을 사용한다면 유니코드로 저장됨을 뜻합니다.
+> 파이썬 3.0부터는 언어의 [`str`](https://docs.python.org/ko/3/library/stdtypes.html#str) 형은 유니코드 문자를 포함하고, 이는 어떤 문자열이든 `"unicode rocks!"`, `'unicode rocks!'` 또는 삼중 따옴표로 묶인 문자열 문법을 사용한다면 **유니코드로 저장됨을 뜻합니다.**
 
-파이썬에서 인코딩과 디코딩을 담당하는 내장함수는 각각 `encode()`와 `decode()`입니다. `encode()`는 유니코드 문자열을 byte로 변환하고, `decode()`는 이와 반대로 byte를 유니코드로 변환합니다. 참고로 파이썬에서 byte는 binary 데이터를 다루는 type입니다. 한글 '가'를 utf-8로 인코딩 및 디코딩 해서 지금까지 배운 이론을 점검해 봅시다.
+파이썬에서 인코딩과 디코딩을 담당하는 내장함수는 각각 `encode()`와 `decode()`입니다. `encode()`는 유니코드 문자열을 bytes로 변환하고, `decode()`는 이와 반대로 bytes를 유니코드로 변환합니다. 참고로 파이썬에서 bytes는 binary 데이터를 다루는 type입니다. 계속 말씀드렸던 2진수 데이터를 파이썬에서는 bytes라는 type으로 표현한다고 보시면 되겠습니다. 
+
+<br>
 
 ### 인코딩
 
 파이썬에서는 `str`의 `encode()` 메소드로 유니코드를 바이트로 변환할 수 있습니다.
 
-> [`bytes.decode()`](https://docs.python.org/ko/3/library/stdtypes.html#bytes.decode)의 반대 메서드는 요청된 *encoding*으로 인코딩 된 유니코드 문자열의 [`bytes`](https://docs.python.org/ko/3/library/stdtypes.html#bytes)를 반환하는 [`str.encode()`](https://docs.python.org/ko/3/library/stdtypes.html#str.encode)입니다.
+> [`str.encode()`](https://docs.python.org/ko/3/library/stdtypes.html#str.encode)는 [`bytes.decode()`](https://docs.python.org/ko/3/library/stdtypes.html#bytes.decode)에 반대되는 메서드로서, 요청된 *encoding*으로 인코딩 된 유니코드 문자열의 [`bytes`](https://docs.python.org/ko/3/library/stdtypes.html#bytes)를 반환하는 메서드입니다.
 
-다음과 같이 간단한 코드로 표현 가능합니다.
+<br>
+
+한글 '가'를 파이썬에서 utf-8로 인코딩해서 이론대로 변환이 되는지 확인 해 봅시다.
 
 ```python
 >>> string = '가'
 >>> print(string.encode('utf-8'))
 b'\xea\xb0\x80'
 >>> print(type(string.encode('utf-8')))
-<class 'bytes'>
+<class bytes>
 ```
 
-'가'를 UTF-8로 인코딩하니 `EA B0 80` 이렇게 3byte로 변환되었습니다. 일단 한글 1글자가 3byte인 것은 UTF-8의 규칙에 맞습니다. 그렇다면 우리가 배운 이론을 적용해서 실제로 `EA B0 80`가 나오는지 살펴보죠.
+<br>
+
+파이썬에서 '가'를 UTF-8로 인코딩하니 `EA B0 80` 이렇게 3byte의 숫자로 변환되었습니다. 일단 한글 1글자가 3byte인 것은 UTF-8의 규칙에 맞습니다. 그렇다면 우리가 배운 이론을 적용해서 실제로 `EA B0 80`가 나오는지 살펴보죠.
+
+<br>
+
+한글 '가'의 유니코드 코드 포인트는 `U+AC00` 입니다. 이를 2진수로 변환하면 `1010 1100 0000 0000` 입니다. 이제 [위에서](https://gguguk.github.io/posts/korean_encoding/#utf-8) 배운 UTF-8 인코딩 규칙에 따라 2진수를 변환해봅시다. `U+AC00`은 `000800`-`00FFFF` 범위에 속하니까... `1110xxxx 10xxxxxx 10xxxxxx` 이 패턴에 맞게 2진수를 뒤에서부터 채워주면 되겠네요. 그럼 `11101010 10110000 10000000`를 얻을 수 있습니다. 파이썬에서는 인코딩된 값을 16진수(`\x`)로 나타내고 있으니까 우리도 16진수로 변환해보면... `EA B0 80`를 얻을 수 있습니다. 직접 손으로 계산한 인코딩 값과 파이썬이 출력한 인코딩 값이 일치합니다!
 
 | 문자 | 유니코드 코드 포인트 | 2진수               | UTF-8(Bin)                             | UTF-8(Hex) |
 | ---- | -------------------- | ------------------- | -------------------------------------- | ---------- |
@@ -163,6 +175,59 @@ b'\xea\xb0\x80'
 <br>
 
 ### 디코딩
+
+파이썬에서 bytes의 decode() 메서드를 통해서 bytes 문자열을 유니코드 문자열로 되돌릴 수 있습니다.
+
+> `bytes.decode()`는 주어진 바이트열로부터 디코딩된 문자열을 돌려줍니다. 기본 인코딩은 `'utf-8'` 입니다. 
+
+위에서 얻어낸 한글 '가'의 UTF-8 인코딩 값인 `b'\xea\xb0\x80'`를 다시 유니코드 문자열로 되돌려 보겠습니다.
+
+```python
+>>> bytes_string = b'\xea\xb0\x80'
+>>> print(bytes_string.decode("utf-8"))
+'가'
+>>> print(type(bytes_string.decode("utf-8")))
+<class str>
+```
+
+처음에 '가'를 utf-8로 인코딩한 bytes를 알아내었고, 그 bytes를 같은 인코딩 방식인 utf-8로 디코딩 했으니 어쩌면 당연한 결과입니다. 그렇다면 인코딩과  디코딩 방식이 다르면 어떨까요?
+
+<br>
+
+### 인코딩과 디코딩 방식이 다를 때
+
+이번에는 인코딩과 디코딩 방식이 다를 때 어떤 일이 일어나는지 살펴보겠습니다. 먼저 한글 '가'를 euc-kr 이라는 인코딩 방식으로 인코딩 해줍니다.
+
+```python
+>>> string = '가'
+>>> print(string.encode('euc-kr'))
+b'\xb0\xa1'
+```
+
+16진수 `B0 A1`이라는 인코딩된 값을 얻었습니다. 이 값을 euc-kr이 아니라 utf-8로 디코딩 해보겠습니다.
+
+```python
+>>> print(b'\xb0\xa1'.decode('utf-8'))
+
+---------------------------------------------------------------------------
+UnicodeDecodeError                        Traceback (most recent call last)
+<ipython-input-23-d8ceaefe020b> in <module>
+----> 1 print(b'\xb0\xa1'.decode('utf-8'))
+
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xb0 in position 0: invalid start byte
+```
+
+UnicodeDecodeError가 발생합니다. 이는 문자가 인코딩된 방식과 디코딩된 방식의 차이에서 기인합니다. 각 인코딩 방식마다 숫자의 범위나 체계가 다르기 때문에 발생하는 일이겠죠.
+
+<br>
+
+## 마무리
+
+---
+
+지금까지 ASCII, 유니코드, UTF-8 기반의 문자 인코딩 방식에 대해서 살펴보았습니다. 컴퓨터는 0과 1로만 이루어진 2진법의 언어만 이해할 수 있습니다. 따라서 문자도 숫자로 변환해야만 우리는 서로 다른 컴퓨터 간에 문자 데이터를 주고 받을 수 있습니다. 문자를 특정 숫자로 변환하는 행위를 문자 인코딩(encoding)이라고 하고 그 반대의 행위를 문자 디코딩(decoding)이라고 합니다.
+
+문자를 인코딩 방식은 매우 다양한데요. 각 방식마다 다룰 수 있는 문자의 개수도 다르고 변환되는 숫자도 다릅니다. 그리고 우리는 여러가지 문자 인코딩 방식에서 가장 대표적인 방식인 ASCII, Unicode, UTF-8에 대해서 살펴보았습니다. 각각의 아주 세부적인 내용까지는 정리하진 않았지만, 코딩을 하면서 만날 수 있는 여러가지 문자 인코딩 에러를 이해하고 대처할 수 있는 기초 체력을 기르다는 관점으로 접근해 보았습니다.
 
 <br>
 
