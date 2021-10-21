@@ -233,7 +233,7 @@ $$
 
 <br>
 
-### Mantassia
+### Mantissa
 
 mantassia는 고정 소수점에서의 fractional part와 같은 역할입니다. **정규화 결과의 소수 부분**을 mantassia 자리에 그대로 넣고, 남는 자리는 0으로 채우면 되겠습니다.
 
