@@ -18,10 +18,14 @@ order: 4
 
 🎁  Recommender System
 
+⛓  MLOps
+
 👀  A/B Test
 
 🎯  Growth Hacking
 
 # 이쪽으로 연락 주세요.
 
-✉️ gwkoo82@gmail.com
+✉️ 이메일: gwkoo82@gmail.com
+
+💼 [링크드인 프로필](http://www.linkedin.com/in/국원-구-32a9691a1)
