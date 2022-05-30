@@ -1,15 +1,15 @@
 ---
-title: vector search 시리즈 2 - vector quantization
+title: AkNN 시리즈 3 - product quantization
 author: Gukwon Koo
-categories: [CS, Vector Search]
-tags: [vector search, quantization]
+categories: [CS, AkNN]
+tags: [aknn, vector search, quantization]
 pin: false
 math: true
 comments: true
 date: 2022-05-22 16:21:00 +0900
 ---
 
-# Vector Quantization이란?
+# Product Quantization이란?
 
 - 어쩌고 저쩌고
 - 이런 장점...
