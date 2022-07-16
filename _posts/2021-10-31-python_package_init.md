@@ -60,7 +60,7 @@ pandas.core.frame.DataFrame
 
 <br>
 
-마치 pandas 패키지 제작자들께서 정~말 자주 쓸 것 같은 `pd.DataFrame` 클래스를 쉽게 사용하라고 배려해주신 것 같은 느낌이 들어서 참 감사합니다. 하지만 궁금해집니다. 이게 어떻게 가능하지? **그 비밀은 `__init__.py` 모듈**에 있었습니다. 지금부터 그 비밀을 같이 파해쳐 보시죠!
+마치 pandas 패키지 제작자들께서 정~말 자주 쓸 것 같은 `pd.DataFrame` 클래스를 쉽게 사용하라고 배려해주신 것 같은 느낌이 들어서 참 감사합니다. 하지만 궁금해집니다. 이게 어떻게 가능하지? **그 비밀은 `__init__.py` 모듈**에 있었습니다. 지금부터 그 비밀을 같이 파헤쳐 보시죠!
 
 <br>
 
@@ -112,7 +112,7 @@ def func():
 # main.py
 import sub
 def func():
-	return "This is func() in main.py"
+  return "This is func() in main.py"
 ```
 
 <br>
