@@ -1,0 +1,130 @@
+---
+title: IRSA의 원리를 파헤쳐보자 1 - K8S Admission Webhook
+author: Gukwon Koo
+categories: [MLOps, Kubernetes]
+tags: [kubernetes, k8s, admission controller, admission webhook, pod identity webhook]
+pin: false
+math: true
+comments: true
+date: 2022-09-13 23:25:00 +0900
+---
+
+IRSA(IAM Role for Service Account)는 AWS EKS에서 파드 단위로 권한을 관리하기 위한 방법 또는 프로세스입니다. 요즘에 회사에서 kubeflow를 셋팅하고 있는데 AWS의 특정 리소스(S3 등)와의 통신을 위해 쿠버네티스 오브젝트에 권한을 부여해야할 상황이 자주 발생합니다. 이때 주로 IRSA를 활용하여 업무를 진행하고 있습니다. IRSA를 활용하면 권한 관리가 매우 수월하고, 보안과 관련된 사항이 노출될 위험도가 낮기 때문입니다. 
+
+IRSA를 활용하는 것은 그다지 어려운 일은 아닙니다. AWS IAM의 체계와 쿠버네티스 기본 개념만 있다면 손쉽게 적용할 수 있습니다. 그러나 문득 IRSA의 동작 방식을 이해하기 위해서는 많은 배경지식이 필요합니다. 이 시리즈를 시작한 목적도 현업에서 IRSA의 동작 과정상 필요한 배경지식을 제대로 파악하지 못 하고 단순 활용만 하고 있었기에 제대로 된 정리가 필요하다는 생각이었습니다.
+
+그래서 준비 했습니다. *IRSA의 원리를 파헤쳐보자* 시리즈! 앞으로 IRSA의 작동 원리를 완벽하게 이해하기 위해서 필요한 요소들을 정리하고자 합니다. 그 첫번째 순서로 쿠버네티스 admission webhook을 다뤄보겠습니다. admission webhook은 IRSA가 이루어지기 위한 쿠버네티스쪽의 필수 오브젝트입니다.
+
+<br>
+
+# Admission Controller란?
+
+![https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/](https://d33wubrfki0l68.cloudfront.net/af21ecd38ec67b3d81c1b762221b4ac777fcf02d/7c60e/images/blog/2019-03-21-a-guide-to-kubernetes-admission-controllers/admission-controller-phases.png)_admission webhook_
+
+**admission controller**란 kubernetes api server를 호출 했을 때, 요청 내용을 가로채서(intercept) 변형(mutating)하거나 검증(validating)하는 쿠버네티스 plugin의 집합을 가르킵니다. admission controller가 개입하여 무엇인가 하는 것을 admission control 이라고도 표현할 수 있겠습니다. 앞서 언급 했지만 admission control은 크게 2단계로, 변형(mutating), 검증(validating) 단계가 있습니다. 변형은 요청 내용을 수정하는 것을 말합니다. 특정 조건을 만족 시킬 때 환경 변수를 추가적으로 주입시키는 등의 행위를 할 수 있습니다. 검증은 해당 요청 내용이 실제 쿠버네티스 클러스터에 적용돼도 되는지 확인합니다. 만약 부적절한 요청일 경우 거절 될 수 있습니다. 한편 변형 또는 검증만 하는 admission controller가 있는 반면, 두가지 단계를 모두 담당하는 admission controller도 있습니다.
+
+너무 추상적인 개념 위주로만 설명하면 보통 와 닿지 않는 경우가 많습니다. 구체적인 사례를 들어 볼까요? 대표적인 [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#what-does-each-admission-controller-do)는 다음과 같은 것들이 있습니다.
+
+- [LimitRange](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#limitranger), [ResourceQuota](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#resourcequota): 특정 네임스페이의 사용할 수 있는 자원의 한계치를 컨트롤 합니다.
+- [ServiceAccount](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#serviceaccount): 자주 사용하던 ServiceAccount도 admission controller의 한 종류입니다. ServiceAccount에 대한 자동화(automation)이 구현되어 있습니다.
+- [Isito Envoy Proxy Injection](https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/): 특정 네임스페이스에 생성되는 파드에 사이드카가 자동으로 생성되게 하여 서비스 매시를 구성할 수 있도록 돕습니다.
+- [NamespaceLifecycle](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#namespacelifecycle): `Terminating` 단계에 있는 namespace에 object가 배포되는 것을 거절(deny) 합니다.
+
+<br>
+
+한편 좀더 특별한 역할과 기능들 담당하는 admission controller가 두가지 있습니다. 본 글에서 주요하게 다룰 녀석들이죠! 바로 MutatingAdmissionWebhooks와 ValidatingAdmissionWebhooks입니다. 이름이 매우 길고 webhook이라는 단어가 들어가 있긴 하지만, 여전히 두 녀석들도 admission controller의 한 종류입니다. 어찌나 특별한지 쿠버네티스 공식문서에서도 두 admission controller를 특별히 [admission webhook](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#what-are-admission-webhooks)이라는 페이지에 따로 설명해 놓았습니다. 이하 두 admission controller를 admission webhook으로 부르도록 하겠습니다.
+
+admission webhook은 정해진 형식에 따른 request를 받아서 그 request를 변형(mutating)하거나 검증(validating)하는 HTTP [callback](https://leffept.tistory.com/329)을 뜻합니다.
+
+> 여기서 말하는 callback은 [특정 이벤트에 따라 호출되어지는 함수](https://satisfactoryplace.tistory.com/18)라고 생각하는게 이해하기 쉽습니다. admission controller 자체가 특정 조건을 만족할 때 비로소 작동하는 plugin이라는 정의를 떠올려 보면 일맥 상통하는 말임을 알 수 잇씁니다.
+
+쿠버네티스 사용자는 admission webhook을 커스텀하게 구현하여 pod를 생성하는 요청에 추가적인 metadata를 주입한다든지 pod 생성 요청을 거절한다든지 등의 행위를 할 수 있습니다. 최종적으로 admission webhook을 통과한 요청 내용은 `etcd`에 저장됩니다. 그리고 여러 쿠버네티스 컨트롤러가 desired state를 유지하기 위해 reconcile을 하게됩니다. 이것이 일반적인 쿠버네티스 오브젝트들의 생애주기 입니다.
+
+> 본 글의 주제와 크게 관련이 없어 설명하진 않았지만 admission webhook이 작동하기 전에 kubernetes api server를 호출한 개체가 승인된 개체인지 인증(authentication)하는 과정과 그 개체가 특정 행위를 수행할 수 있는 권한이 있는지 인가(authorization)하는 과정이 먼저 선행됩니다.
+
+<br>
+
+# Admission Webhook 예시: Pod Identity Webhook
+
+EKS 클러스터를 셋팅하면 기본적으로 pod-Identity-webhook `MutatingWebhookConfiguration` 오브젝트가 생성됩니다. 이는 IRSA(IAM Role for Service Account)를 구현하기 위한 **admission webhook**입니다. 좀 더 자세히 말하면 pod-identity-webhook은 파드가 생성될 때 주입되는 `ServiceAccount`에 `medata.annotations.eks.amazonaws.com/role-arn`가 선언되어 있을 경우, 이에 맞게 파드의 환경 변수 설정을 변형(mutating)시키는 역할을 수행하는 admission webhook이라고 할 수 있습니다. 왜 하필 role-arn인지는 차차 향후 포스팅에서 자세히 정리할 예정이니 본 글에서는 변형(mutating)이 어떻게 일어나는지 결과 자체만 집중해 보죠.
+
+먼저 아래와 같은 매니패스트를 배포 해보겠습니다. IAM Role이 지정된 `ServiceAccount`와 그 `ServiceAccount`를 활용하는 파드를 생성하는 매니패스트입니다.
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::1234567890:role/mutating-webhook-tutorial-role  # 적절한 값으로 수정 필요
+  name: mutating-webhook-tutorial-sa
+  namespace: default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mutating-webhook-tutorial-pod
+spec:
+  serviceAccount: mutating-webhook-tutorial-sa
+  containers:
+	- name: mutating-webhook-tutorial
+	  image: busybox
+	  command: ['sh', '-c', 'echo Mutating Webhook Tutorial!! && sleep 3600']
+```
+
+<br>
+
+위 매니패스트를 작성하고 쿠버네티스에 배포하면 Pod에 다음과 같은 값들이 추가적으로 설정되어 있음을 알 수 있습니다. 모두 향후 IRSA를 위해 필요한 환경 변수들입니다.
+
+- env[*].name
+- env[*].value
+
+```yaml
+apiVersion: v1
+kind: Pod
+spec:
+  ...
+    env:
+		- name: AWS_DEFAULT_REGION
+      value: ap-northeast-2
+    - name: AWS_REGION
+      value: ap-northeast-2
+    - name: AWS_ROLE_ARN
+      value: arn:aws:iam::1234567890:role/mutating-webhook-tutorial-role
+    - name: AWS_WEB_IDENTITY_TOKEN_FILE
+      value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
+  ...
+    volumeMounts:
+    - mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+      name: aws-iam-token
+  ...
+  volumes:
+  - name: aws-iam-token
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          audience: sts.amazonaws.com
+          expirationSeconds: 86400
+          path: token
+```
+
+분명히 매니패스트를 배포할 당시에는 이와 같은 환경 변수를 어디에도 설정하지 않았습니다. 그렇데 어떻게 실제 배포된 파드에 저런 환경 변수들이 셋팅되어 있을까요? 이는 admission webhook인 pod-identity-webhook가 요청 내용을 가로채서 파드의 환경 변수에 `AWS_DEFAULT_REGION`, `AWS_REGION`, `AWS_ROLE_ARN`, `AWS_WEB_IDENTITY_TOKEN_FILE`를 생성하고, `serviceAccountToken`을 파드에 볼륨 마운트하는 내용으로 변형(mutating) 했기 때문입니다. 물론 검증(validating) 단계도 정상적으로 통과 했기 때문에 해당 요청 내용은 etcd에 적재 되었을 것입니다. 이와 관련된 좀 더 자세한 내용은 [링크](https://github.com/aws/amazon-eks-pod-identity-webhook#eks-walkthrough)를 참조해 보시면 좋을 듯 합니다.
+
+<br>
+
+# 마무리
+
+이렇게 간단하게 admission controller, 그 중에서 특별한 녀석들인 admission webhook에 대해서 알아 보았습니다. 쿠버네티스 api server에 보내지는 요청 내용을 중간에서 변형(mutating) 하거나 검증(validating) 할 수 있으므로 안 그래도 자유로운 쿠버네티스에 더 유연성을 더해줄 수 있는 컴포넌트라는 생각이 듭니다.  단편적인 사실만 놓고 보면 이게 어떻게 파드별로 권한을 제한 하는데 쓰일까 싶은데요. 마운트 되는 환경 변수를 자세히 보면 뭔가 AWS IAM과 관련된, 즉 권한을 관리하는 서비스와 밀접하게 관련되어 있다는 사실을 알 수 있습니다. 
+
+마지막으로 본 글에서는 IRSA를 이해하기 위한 최소한의 지식만을 정리했는데요. 사실 admission webhook도 정리하고자하면 할게 많습니다. 나중에 제가 현업에서 admission webhook를 구현해야 하는 순간이 올지도 모르겠네요. 향후 필요성이 느껴지면 좀더 심화된 수준에서 정리를 해보겠습니다.
+
+<br>
+
+# 참고자료
+
+- [What are Kubernetes admission controllers?](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/#what-are-kubernetes-admission-controllers)
+- [Dynamic Admission Control](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)
+- [[Webhook\] 웹훅이란?](https://leffept.tistory.com/329)
+- [쿠버네티스 Admission Control #1](https://coffeewhale.com/kubernetes/admission-control/2021/04/28/opa1/)
+- [EKS에서 쿠버네티스 포드의 IAM 권한 제어하기: Pod Identity Webhook](https://tech.devsisters.com/posts/pod-iam-role/)
+- [콜백 함수(Callback)의 정확한 의미는 무엇일까?](https://satisfactoryplace.tistory.com/18)
