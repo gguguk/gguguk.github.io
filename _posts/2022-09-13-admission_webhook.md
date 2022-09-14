@@ -19,7 +19,7 @@ IRSA를 활용하는 것 자체는 그다지 어려운 일은 아닙니다. AWS 
 
 # Admission Controller란?
 
-![https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/](https://d33wubrfki0l68.cloudfront.net/af21ecd38ec67b3d81c1b762221b4ac777fcf02d/7c60e/images/blog/2019-03-21-a-guide-to-kubernetes-admission-controllers/admission-controller-phases.png)_admission webhook_
+![https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/](https://www.oreilly.com/library/view/kubernetes-best-practices/9781492056461/assets/kubp_1701.png)_admission webhook(출처: [Kubernetes Admission Control](https://www.digihunch.com/2022/01/kubernetes-admission-control/))_
 
 **admission controller**란 kubernetes api server를 호출 했을 때, 요청 내용을 가로채서(intercept) 변형(mutating)하거나 검증(validating)하는 쿠버네티스 plugin의 집합을 가르킵니다. admission controller가 개입하여 무엇인가 하는 것을 admission control 이라고도 표현할 수 있겠습니다. 앞서 언급 했지만 admission control은 크게 2단계로서 변형(mutating), 검증(validating) 단계가 있습니다. 변형은 요청 내용을 수정하는 것을 말합니다. 특정 조건을 만족시킬 때 환경 변수를 추가적으로 주입시키는 등의 행위를 할 수 있습니다. 검증은 해당 요청 내용이 실제 쿠버네티스 클러스터에 적용돼도 되는지 확인합니다. 만약 부적절한 요청일 경우 거절 될 수 있습니다. 한편 변형 또는 검증만 하는 admission controller가 있는 반면, 두 단계를 모두 담당하는 admission controller도 있습니다.
 
