@@ -79,7 +79,7 @@ admission webhook의 구현과 관련된 자세한 사항은 본 글의 범위�
 
 EKS 클러스터를 셋팅하면 기본적으로 pod-identity-webhook(`mutating webhook`)이 생성됩니다. 그러나 해당 webhook은 EKS가 관리하는 control plane에 존재하기 때문에 일반적인 방법으로는 해당 admission webhook을 직접 보긴 어렵습니다. 그래도 우리는 간접적으로 그 존재를 알 수 있는데, 클러스터에 생성된  pod-identity-webhook `MutatingWebhookConfiguration` 오브젝트를 찾을 수 있습니다.
 
-```
+```yaml
 ...
 kind: MutatingWebhookConfiguration
 webhooks:
