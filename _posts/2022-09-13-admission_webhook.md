@@ -51,7 +51,7 @@ admission webhooks이란 요청 내용을 변형(mutating)하는 `mutating webho
 
 [공식 문서](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#what-are-admission-webhooks)에서는 admission webhooks(mutating webhook 및 validating webhook)을 admission request를 받아서 특정 행위를 수행하는 HTTP callback이라고 표현합니다.
 
-> 여기서 말하는 callback은 [특정 이벤트에 따라 호출되어지는 함수](https://satisfactoryplace.tistory.com/18)라고 생각하는게 이해하기 쉽습니다. admission controller 자체가 특정 조건을 만족할 때 비로소 작동하는 plugin이라는 정의를 떠올려 보면 일맥 상통하는 말임을 알 수 있습니다.
+> 여기서 말하는 callback은 [특정 이벤트에 따라 호출되어지는 함수](https://satisfactoryplace.tistory.com/18)라고 생각하는게 이해하기 쉽습니다.
 
 admission webhook은 흔히 생각할 수 있는 API 서버의 형태로 구현됩니다. 따라서 admission webhook을 좀 더 구체적으로 표현하기 위해 (admission) webhook **sever**라고 표현하기도 합니다(위 그림에서는 webhook sever로 표현되어 있습니다). 일반적인 admission controller는 유연성이 떨어진다고 언급하였는데요. admission webhooks는 어떤 방식으로 동작하기에 이런 한계를 극복할 수 있었을까요? 
 
@@ -61,7 +61,7 @@ admission webhook은 흔히 생각할 수 있는 API 서버의 형태로 구현�
 
 <br>
 
-정리하자면 쿠버네티스는 admission webhook이라는 새로운 개념을 통해서 admission control 로직을 외부의 API, 즉 admission webhook (sever)에 맡길 수 있게 되었습니다. 따라서 새로운 admission control 로직을 적용하고자 할 때 kube-apisever에 존재하는 admission controller들처럼 컴파일 과정을 거칠 필요가 없습니다. 그저 어떤 조건을 만족할 때 어느 API로 보낼지를 결정하고(`MutatingWebhookConfiguration`), admission webhook (server)를 새로 배포하기만 하면 됩니다.그렇기 때문에 일반적인 admission controller 보다 유연성이 높다라고 할 수 있습니다. admission webhook은 다음과 같은 것들이 있습니다.
+정리하자면 쿠버네티스는 admission webhook이라는 새로운 개념을 통해서 admission control 로직을 외부의 API, 즉 admission webhook (sever)에 맡길 수 있게 되었습니다. 따라서 새로운 admission control 로직을 적용하고자 할 때 kube-apisever에 존재하는 admission controller들처럼 컴파일 과정을 거칠 필요가 없습니다. 그저 어떤 조건을 만족할 때 어느 API로 보낼지를 결정하고(`MutatingWebhookConfiguration`), admission webhook (server)를 새로 배포하기만 하면 됩니다. 그렇기 때문에 일반적인 admission controller 보다 유연성이 높다라고 할 수 있습니다. admission webhook은 다음과 같은 것들이 있습니다.
 
 - Istio Envoy Sidecar: 파드 생성 요청이 오면 해당 파드에 Envoy Sidecar 컨테이너를 강제로 주입합니다.
 - `StorageClass` 프로비저닝: PVC가 생성되는 것을 지켜보다가 자동으로 PVC에 미리 선언된 StorageClass를 주입합니다.
@@ -99,12 +99,12 @@ webhooks:
 
 해당 매니패스트를 간단하게 살펴보면 다음과 같은 규칙이 적혀 있습니다:
 
-- kube-apiserver에 pod를 생성하는 요청이 들어왔을 때,
+- `kube-apiserver`에 pod를 생성하는 요청이 들어왔을 때,
 - https://127.0.0.1:23443/mutate 주소를 가진 mutating webhook server로 보냅니다(아마 pod-identity-webhook의 주소라고 생각됩니다).
 
 <br>
 
-해당 mutating webhook server는 파드의 `ServiceAccount`에 `medata.annotations.eks.amazonaws.com/role-arn`가 선언되어 있는 요청일 경우, IRSA를 위한 환경 변수를 설정하거나 projected volume을 설정하는 요청으로 변환합니다. 즉 요청의 변형(mutating)이 일어나는 것이죠. 아래의 매니패스트를 클러스터에 배포해서 pod-identity-webhook의 개입(intercept) 결과를 확인 해보도록 하죠. iam role anr이 명시된 `ServiceAccount`와 그 `ServiceAccount`를 활용하는 파드를 생성하는 간단한 매니패스트입니다.
+해당 mutating webhook server는 파드의 `ServiceAccount`에 `metadata.annotations.eks.amazonaws.com/role-arn`가 선언되어 있는 요청일 경우, IRSA를 위한 환경 변수를 설정하거나 projected volume을 설정하는 요청으로 변환합니다. 즉 요청의 변형(mutating)이 일어나는 것이죠. 아래의 매니패스트를 클러스터에 배포해서 pod-identity-webhook의 개입(intercept) 결과를 확인 해보도록 하죠. iam role arn이 명시된 `ServiceAccount`와 그 `ServiceAccount`를 활용하는 파드를 생성하는 간단한 매니패스트입니다.
 
 ```yaml
 apiVersion: v1
@@ -133,6 +133,8 @@ spec:
 
 - env[*].name
 - env[*].value
+- volumeMounts
+- volumes
 
 ```yaml
 apiVersion: v1
@@ -164,13 +166,13 @@ spec:
           path: token
 ```
 
-분명히 매니패스트를 배포할 당시에는 이와 같은 환경 변수를 어디에도 설정하지 않았습니다. 그렇데 어떻게 실제 배포된 파드에 저런 환경 변수들이 셋팅되어 있을까요? 이는 admission webhook(구체적으로는 mutating webhook)인 pod-identity-webhook가 요청 내용을 가로채서 파드의 환경 변수에 `AWS_DEFAULT_REGION`, `AWS_REGION`, `AWS_ROLE_ARN`, `AWS_WEB_IDENTITY_TOKEN_FILE`를 생성하고, `serviceAccountToken`을 파드에 볼륨 마운트하는 내용으로 변형(mutating) 했기 때문입니다. 물론 검증(validating) 단계도 정상적으로 통과 했기 때문에 해당 요청 내용은 etcd에 적재 되었을 것입니다. 이와 관련된 좀 더 자세한 내용은 [링크](https://github.com/aws/amazon-eks-pod-identity-webhook#eks-walkthrough)를 참조해 보시면 좋을 듯 합니다.
+분명히 매니패스트를 배포할 당시에는 이와 같은 환경 변수를 어디에도 설정하지 않았습니다. 그렇데 어떻게 실제 배포된 파드에 저런 환경 변수들이 셋팅되어 있을까요? 이는 admission webhook(구체적으로는 mutating webhook)인 pod-identity-webhook가 요청 내용을 가로채서 파드의 환경 변수에 `AWS_DEFAULT_REGION`, `AWS_REGION`, `AWS_ROLE_ARN`, `AWS_WEB_IDENTITY_TOKEN_FILE`를 생성하고, `serviceAccountToken`을 파드에 볼륨 마운트하는 내용으로 변형(mutating) 했기 때문입니다. 물론 검증(validating) 단계도 정상적으로 통과 했기 때문에 해당 요청 내용은 `etcd`에 적재 되었을 것입니다. 이와 관련된 좀 더 자세한 내용은 [링크](https://github.com/aws/amazon-eks-pod-identity-webhook#eks-walkthrough)를 참조해 보시면 좋을 듯 합니다.
 
 <br>
 
 # 마무리
 
-간단하게 admission controller를 살펴보았고, 그들의 한계점을 살펴보았습니다. 그리고 그 한계점을 극복하기 위한 새로운 개념인 admission webhooks도 살펴보았습다. kube-apiserver에 보내지는 요청 내용을 중간에서 변형(mutating) 하거나 검증(validating) 할 수 있으므로 안 그래도 자유로운 쿠버네티스에 더 유연성을 더해줄 수 있는 컴포넌트라는 생각이 듭니다. 그러나 아직 우리는 pod-identity-webhook이 요청을 변형한 결과의 의미를 명확하게 살펴보지 않았습니다. 그러나 마운트 되는 환경 변수를 자세히 보면 뭔가 AWS IAM과 관련된, 즉 권한 관리와 밀접하게 관련되어 있다는 사실을 짐작할 수는 있겠습니다. 앞으로 IRSA 시리즈 글에서 더 구체화 시켜나가 보겠습니다.
+간단하게 admission controller를 살펴보았고, 그들의 한계점을 살펴보았습니다. 그리고 그 한계점을 극복하기 위한 새로운 개념인 admission webhooks도 살펴보았습다. `kube-apiserver`에 보내지는 요청 내용을 중간에서 변형(mutating) 하거나 검증(validating) 할 수 있으므로 안 그래도 자유로운 쿠버네티스에 더 유연성을 더해줄 수 있는 컴포넌트라는 생각이 듭니다. 그러나 아직 우리는 pod-identity-webhook이 요청을 변형한 결과의 의미를 명확하게 살펴보지 않았습니다. 그러나 마운트 되는 환경 변수를 자세히 보면 뭔가 AWS IAM과 관련된, 즉 권한 관리와 밀접하게 관련되어 있다는 사실을 짐작할 수는 있겠습니다. 앞으로 IRSA 시리즈 글에서 더 구체화 시켜 보시죠.
 
 <br>
 
