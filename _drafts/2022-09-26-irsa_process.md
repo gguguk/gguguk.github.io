@@ -116,9 +116,13 @@ Oauth2.0의 내용은 비교적 간단하게 작성하자... OIDC가 IRSA를 이
 
  다이어그램 그리기
 
-# 마무리
+<br>
 
-정리 내용 작성
+# IRSA(IAM Role for Service Account) 프로세스
+
+![](/assets/img/post_img/irsa_architecture.png)_IRSA High Level Architecture_
+
+IRSA(IAM Role for Service Account)는 [이전 글]()에서 예시로 든 Pod identity webhook을 활용하여 Service Account Token Volume Projection 기능 구현하고, 이를 쿠버네티스 파드 별로 임시 자격 증명을 언급하고 AWS 리소스들에 엑세스 가능 하도록 하는 일종의 프로토콜입니다.
 
 <br>
 
