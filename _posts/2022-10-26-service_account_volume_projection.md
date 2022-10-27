@@ -20,9 +20,7 @@ IRSA의 원리를 파헤쳐보자 시리즈
 
 <br>
 
-# 배경 지식
-
-##  서비스 어카운트(service account)와 토큰(token)
+#  서비스 어카운트(service account)와 토큰(token)
 
 쿠버네티스 클러스터에 파드를 생성하면 같은 네임스페이스에 `default`라는 서비스 어카운트(service account)와 여기에 마운트되는 시크릿(secret)이 자동적으로 생성됩니다. 이 시크릿을 살펴보면 토큰(token)이라는 필드가 있고, 매우 긴 스트링이 할당되어 있습니다. default 네임스페이스에 default라는 이름을 이름을 가진 서비스 어카운트의 정보를 확인해봅시다.
 
@@ -78,28 +76,93 @@ token:      eyJhbGciOiJSUzI1NiIsImtpZCI6Il9MTTM0aHpjYmYwck5sWGNTcUZIVExEazc2M2xf
 
 <br>
 
-그러나 애초에 이러한 토큰은 쿠버네티스 내에서 파드별로 권한을 관리하고 식별하기 위해 설계되었습니다. 즉 파드가 외부의 서비스와 통신하기 위한 것들이 전혀 고려되어 있지 않습니다. 예를 들어서 발급된 토큰에 유효기간이 따로 지정되어 있지 않기 때문에 토큰이 영원히 살아있게 됩니다. 만약 어드민 권한이 롤 바인딩 된 서비스 어카운트의 토큰이 탈취 당한다면 어떨까요? 심각한 보안상 위험 요소가 될 것입니다. 만일 탈취 당하더라도 토큰의 유효기간이 있으면 어떨까요? 일정 기간이 지난 후에는 해당 토큰이 쓸모 없어지게 되므로 아무래도 보안이 강화될 것입니다. 그렇다면 서비스 어카운트의 토큰에 어떻게 유효기간을 설정할 수 있을까요? 쿠버네티스에서 제공하는 Service Account Token Volume Projection이라는 기능을 활용하면 가능합니다.
+그러나 이러한 기본 토큰은 쿠버네티스 내에서 사용하기 설계되었기 때문에 다음의 문제점이 있습니다:
+
+- 토큰에 유효기간이 없습니다. 만일 어드민 롤이 바인딩된 서비스 어카운트의 토큰이 유출된다면 보안에 심각한 문제가 발생할 것입니다.
+- audience 개념이 없습니다. audience는 이 토큰을 활용하여 여러 서비스나 리소스에 접근하는 대상을 말합니다. 만일 어떤 유저가 웹사이트 A가 토큰을 웹사이트 B에 넘겨 주었을 때, 웹사이트 B가 웹사이트 A를 가장하여 기밀한 자원에 엑세스할 수 있습니다.
+- 외부 서비스와 쉽게 통합되기 어렵습니다. 쿠버네티스 기본 서비스 어카운트 토큰은 쿠버네티스에서만 사용하는 필드들이 많이 있습니다. 따라서 OAuth2.0이나 OIDC 프로토콜 위에 구현된 웹서비스가 쿠버네티스 기본 토큰을 활용하기 위해서는 추가적으로 기능 개발을 해야하는 수고가 있습니다.
+
+이러한 문제들은 쿠버네티스 1.21 이상부터 제공하는 **Service Account Token Volume Projection**이라는 기능을 활용하면 해결할 수 있습니다.
 
 <br>
 
-## Service Account Token Volume Projection
+# Service Account Token Volume Projection
 
-위에서 살펴본 것처럼 기본 쿠버네티스 서비스 어카운트가 제공하는 토큰은 내부에서의 활용만 고려하여 설계 되었기 때문에 외부 서비스에 엑세스 하기 위해서는 추가적인 정보들이 필요합니다. 쿠버네티스 1.12 이후 부터는 Service Account Token Volume Projection라는 기능을 제공하는데, 이를 통해 토큰을 마운트할 때 추가적인 정보를 주입시킬 수 있게 됩니다. 토큰의 만료 시간(일반적으로 `exp`로 표현됨)도 주입 가능합니다.
+위에서 살펴본 것처럼 기본 쿠버네티스 서비스 어카운트가 제공하는 토큰은 내부에서의 활용만 고려하여 설계 되었기 때문에 외부 서비스에 엑세스 하기 위해서는 추가적인 정보들이 필요합니다. 추가적인 정보들엔 무엇이 있고, 왜 필요한지에 대해서는 이어지는 글에서 더 자세히 설명할 예정입니다. 지금은 기본 서비스 어카운트의 토큰은 외부의 리소스에 접근하는데 사용하기엔 뭔가 부족하구나~ 그래서 추가적인 정보를 주입해 주어야 하는구나~ 라고 생각하고 넘어가주세요.
+
+쿠버네티스 1.12 이후 부터는 Service Account Token Volume Projection라는 기능을 사용할 수 있는데, 이를 통해 kubelet이 토큰에 추가적인 정보(토큰의 유효기간, audience 등)를 주입시킬 수 있게 됩니다. 예를 들어 파드 생성시 토큰에 <u>유효시간: 1시간</u>, <u>audience: foobar.com</u>이라는 정보를 주입하고 싶으면 아래와 같이 매니패스트를 작성하면 됩니다. 새롭게 추가된 필드는 다음과 같습니다:
+
+- `spec.volumes[0].projected.source[0].serviceAccountToken.expirationSeconds: 7200` ->  유효시간 2시간
+- `spec.volumes[0].projected.source[0].serviceAccountToken.audience`-> audience는 vault
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: basic-debian-pod-bound-token
+  namespace: default
+spec:
+  serviceAccountName: default
+  containers:
+  - image: debian
+    name: main
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: my-bound-token
+      mountPath: /var/run/secrets/my-bound-token
+  volumes:
+  - name: my-bound-token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          audience: foobar.com
+          expirationSeconds: 3600
+```
 
 <br>
 
-# IRSA(IAM Role for Service Account) 프로세스
+위 매니패스트로 생성된 파드에는 `/var/run/secrets/my-bound-token`  경로에 다음과 같은 토큰이 마운트 되어 있습니다.
 
-![](/assets/img/post_img/irsa_architecture.png)_IRSA High Level Architecture_
+```json
+{
+ "aud": [
+   "foobar.com"
+ ],
+ "exp": 1636151360,
+ "iat": 1636147760,
+ "iss": "https://oidc.eks.ap-northeast-2.amazonaws.com/id/B0678ED568FC12BBC37256BBA2A4BB53",
+ "kubernetes.io": {
+   "namespace": "default",
+   "pod": {
+     "name": "basic-debian-pod-bound-token",
+     "uid": "a593ded9-c93d-4ccf-b43f-bf33d2eb7635"
+   },
+   "serviceaccount": {
+     "name": "default",
+     "uid": "ab71f2b0-abca-4bc7-905a-cc9b2d6832cf"
+   }
+ },
+ "nbf": 1636147760,
+ "sub": "system:serviceaccount:default:default"
+}
+```
 
-IRSA(IAM Role for Service Account)는 [이전 글]()에서 예시로 든 Pod identity webhook을 활용하여 Service Account Token Volume Projection 기능 구현하고, 이를 쿠버네티스 파드 별로 임시 자격 증명을 언급하고 AWS 리소스들에 엑세스 가능 하도록 하는 일종의 프로토콜입니다.
+기본 서비스 어카운트의 토큰과 생김새가 많이 다릅니다. 가장 크게 변화된 부분은 `aud`, `exp`, `iat` 필드가 있다는 점인데요, 이 토큰은 OIDC의 표준 포맷을 따른 다른다는 점이 중요합니다. 따라서 쿠버네티스 파드와 외부 서비스를 쉽게 통합할 수 있게 되었습니다. 또한 토큰의 유효기간(`exp`) 필드가 생겨서 외부 서비스가 이 토큰의 유효성을 쉽게 검증할 수 있습니다.
+
+<br>
 
 # 마무리
 
-정리 내용 작성
+본 글에서는 IRSA를 이해하기 위한 배경 지식으로 쿠버네티스 서비스 어카운트와 서비스 어카운트 볼륨 프로젝션에 대해서 살펴보았습니다. 핵심은 기본 서비스 어카운트에 부족한 정보들을 서비스 어카운트 볼륨 프로젝션을 활용하여 추가적으로 주입시킬 수 있다는 것입니다. 그리고 새롭게 추가되는 정보들은 OIDC 프로토콜의 표준 포맷을 잘 따르기 때문에, 이에 기반하여 구축된 서비스들과 쉽게 통합될 수 있다는 점이 큰 장점입니다.
+
+다음 시간에는 지금까지 2개의 시리즈 글에서 배웠던 내용을 통해 IRSA의 전체적인 프로세스를 이해하는 시간을 가져볼 수 있을 것 같습니다. 저번 글에서 살펴본 pod identity webhook이 추가한 정보들은 무엇인지, 서비스 어카운트 볼륨 프로젝션을 통해 파드에 마운트된 토큰은 어떤 방식으로 활용되는지 등을 좀 더 구체적으로 살펴보겠습니다. 그리고 이번 시리즈 글을 마무리 하도록 하죠!
 
 <br>
 
 # 참고자료
 
 - [Configure Service Accounts for Pods](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#before-you-begin)
+- [지구별 여행자 - Service Account Token Volume Projection](https://kangwoo.kr/2020/02/13/service-account-token-volume-projection/)
+- [OpenID Connect explained](https://connect2id.com/learn/openid-connect)
+- [What GKE users need to know about Kubernetes' new service account tokens](https://cloud.google.com/blog/products/containers-kubernetes/kubernetes-bound-service-account-tokens?hl=en)
