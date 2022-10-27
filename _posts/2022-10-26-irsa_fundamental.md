@@ -20,7 +20,9 @@ IRSA의 원리를 파헤쳐보자 시리즈
 
 <br>
 
-#  서비스 어카운트(service account)와 토큰(token)
+# 배경 지식
+
+##  서비스 어카운트(service account)와 토큰(token)
 
 쿠버네티스 클러스터에 파드를 생성하면 같은 네임스페이스에 `default`라는 서비스 어카운트(service account)와 여기에 마운트되는 시크릿(secret)이 자동적으로 생성됩니다. 이 시크릿을 살펴보면 토큰(token)이라는 필드가 있고, 매우 긴 스트링이 할당되어 있습니다. default 네임스페이스에 default라는 이름을 이름을 가진 서비스 어카운트의 정보를 확인해봅시다.
 
@@ -59,7 +61,7 @@ namespace:  7 bytes
 token:      eyJhbGciOiJSUzI1NiIsImtpZCI6Il9MTTM0aHpjYmYwck5sWGNTcUZIVExEazc2M2xfTkZTenBkb3JyMHk1UlkifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tNjRyaG4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjI3NTI0OGFhLTQyNjMtNDU1My1iZDlmLWY3M2Y2MjAwYTQyZSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.xIgO11X5hM5mHlPak8wcqHKq98BnppWq2OM07URa0JdXc4TeMySI534sHXlFiUNJfA7OX7_x4JtLyo7rxPQKl1c7lHnt2DYFMDhXyui9v6x7Y_IEH4vSe-7Vo5iyv0Nf9kKY8aKq5fqOS2MwsomZnrjhpDKBU6-mlxEF9XKtJH5YKN3FZ-ZDv-cJXlrTAUFwPj_KfY_ypAKBdhDtBJQTQKgQrNZXCDTXEJ4dqUhnPikLwv6_pwC0w1Kn9EyBLUfPjXka8A8kdsbl1RKGkfxetOR9-AJUlemg4ugCt7A5FP-nSF_95Q6RBYcCwgYg1595pj3YEOT8r-05bxOQEt8SrA
 ```
 
- [여기](https://jwt.io/#debugger-io?token=eyJhbGciOiJSUzI1NiIsImtpZCI6Il9MTTM0aHpjYmYwck5sWGNTcUZIVExEazc2M2xfTkZTenBkb3JyMHk1UlkifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tNjRyaG4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjI3NTI0OGFhLTQyNjMtNDU1My1iZDlmLWY3M2Y2MjAwYTQyZSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.xIgO11X5hM5mHlPak8wcqHKq98BnppWq2OM07URa0JdXc4TeMySI534sHXlFiUNJfA7OX7_x4JtLyo7rxPQKl1c7lHnt2DYFMDhXyui9v6x7Y_IEH4vSe-7Vo5iyv0Nf9kKY8aKq5fqOS2MwsomZnrjhpDKBU6-mlxEF9XKtJH5YKN3FZ-ZDv-cJXlrTAUFwPj_KfY_ypAKBdhDtBJQTQKgQrNZXCDTXEJ4dqUhnPikLwv6_pwC0w1Kn9EyBLUfPjXka8A8kdsbl1RKGkfxetOR9-AJUlemg4ugCt7A5FP-nSF_95Q6RBYcCwgYg1595pj3YEOT8r-05bxOQEt8SrA)에 방문해서 토큰 정보를 붙여 넣으면 토큰의 정보를 디코딩 할 수 있습니다. 토큰의 페이로드 부분만 떼 놓고 보면 아래의 정보가 담겨 있습니다.
+ [여기](https://jwt.io/#debugger-io?token=eyJhbGciOiJSUzI1NiIsImtpZCI6Il9MTTM0aHpjYmYwck5sWGNTcUZIVExEazc2M2xfTkZTenBkb3JyMHk1UlkifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tNjRyaG4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjI3NTI0OGFhLTQyNjMtNDU1My1iZDlmLWY3M2Y2MjAwYTQyZSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.xIgO11X5hM5mHlPak8wcqHKq98BnppWq2OM07URa0JdXc4TeMySI534sHXlFiUNJfA7OX7_x4JtLyo7rxPQKl1c7lHnt2DYFMDhXyui9v6x7Y_IEH4vSe-7Vo5iyv0Nf9kKY8aKq5fqOS2MwsomZnrjhpDKBU6-mlxEF9XKtJH5YKN3FZ-ZDv-cJXlrTAUFwPj_KfY_ypAKBdhDtBJQTQKgQrNZXCDTXEJ4dqUhnPikLwv6_pwC0w1Kn9EyBLUfPjXka8A8kdsbl1RKGkfxetOR9-AJUlemg4ugCt7A5FP-nSF_95Q6RBYcCwgYg1595pj3YEOT8r-05bxOQEt8SrA)에 방문해서 토큰 정보를 붙여 넣으면 토큰의 정보를 디코딩 할 수 있습니다. 토큰의 페이로드 부분만 떼 놓고 보면 아래의 정보가 담겨 있습니다. 이 토큰은 JWT(Json Web Token) 형태입니다.
 
 ```bash
 {
@@ -72,23 +74,25 @@ token:      eyJhbGciOiJSUzI1NiIsImtpZCI6Il9MTTM0aHpjYmYwck5sWGNTcUZIVExEazc2M2xf
 }
 ```
 
-토큰의 발급자(iss)가 누구인지와 엔드 유저(sub)가 누구인지 적혀 있습니다. 다시 말해 `kubernetes/serviceaccount`가 이 토큰을 발급 했으며, `system:serviceaccount:default:default`가 이 토큰의 엔드 유저입니다. 이 토큰은 서비스 어카운트를 사용하는 파드에 마운트 됩니다 /var/run  경로를 찾아가 보면 찾을 수 있습니다. 파드가 kube-apiserver와 통신을 할 때, header 부분에 토큰을 실어서 보내게 되는데 kube-apiserver에서는 이 토큰이 유효한지 판단한후 토큰에서 서비스 어카운트의 이름을 얻어냅니다. 그리고 서비스 어카운트에 바인딩 된 롤을 확인하고 인가(authorization)를 통해 특정 행위를 수행할 권한이 있는지를 확인하고 요청 내용을 처리합니다.
+토큰의 발급자(`iss`)가 누구인지와 엔드 유저(`sub`)가 누구인지 적혀 있습니다. 다시 말해 `kubernetes/serviceaccount`가 이 토큰을 발급 했으며, `system:serviceaccount:default:default`가 이 토큰의 엔드 유저입니다. 이 토큰은 서비스 어카운트를 사용하는 파드에 마운트 됩니다 `/var/run/secrets/kubernetes.io/serviceaccount` 경로를 찾아가 보면 찾을 수 있습니다. 파드가 kube-apiserver와 통신을 할 때, header 부분에 토큰을 실어서 보내게 되는데 kube-apiserver에서는 이 토큰이 유효한지 판단한 후 토큰에서 서비스 어카운트의 이름을 얻어냅니다. 그리고 서비스 어카운트에 바인딩 된 롤을 확인하고 인가(authorization)를 통해 특정 행위를 수행할 권한이 있는지를 확인하고 요청 내용을 처리합니다.
 
 <br>
 
-그러나 기본 서비스 어카운트의 토큰에는 최대 단점이 존재합니다. 발급된 토큰에 유효기간이 따로 지정되어 있지 않기 때문에 토큰이 영원히 살아있게 됩니다. 만약 어드민 권한이 롤 바인딩 된 서비스 어카운트의 토큰이 탈취 당한다면 심각한 보안상 위험 요소가 될 것입니다. 물론 토큰이 탈취 당하지 않도록 주의하는게 최선이겠지만, 만일 탈취 당하더라도 토큰의 유효기간이 있으면 일정 기간이 지난 후에는 해당 토큰이 쓸모 없어지게 되므로 보안의 수준을 한층 끌어 올릴 수 있을 것입니다. 그렇다면 서비스 어카운트의 토큰에 어떻게 유효기간을 설정할 수 있을까요? 쿠버네티스에서 제공하는 Service Account Token Volume Projection이라는 기능을 활용하면 가능합니다.
+그러나 애초에 이러한 토큰은 쿠버네티스 내에서 파드별로 권한을 관리하고 식별하기 위해 설계되었습니다. 즉 파드가 외부의 서비스와 통신하기 위한 것들이 전혀 고려되어 있지 않습니다. 예를 들어서 발급된 토큰에 유효기간이 따로 지정되어 있지 않기 때문에 토큰이 영원히 살아있게 됩니다. 만약 어드민 권한이 롤 바인딩 된 서비스 어카운트의 토큰이 탈취 당한다면 어떨까요? 심각한 보안상 위험 요소가 될 것입니다. 만일 탈취 당하더라도 토큰의 유효기간이 있으면 어떨까요? 일정 기간이 지난 후에는 해당 토큰이 쓸모 없어지게 되므로 아무래도 보안이 강화될 것입니다. 그렇다면 서비스 어카운트의 토큰에 어떻게 유효기간을 설정할 수 있을까요? 쿠버네티스에서 제공하는 Service Account Token Volume Projection이라는 기능을 활용하면 가능합니다.
 
 <br>
 
-# Service Account Token Volume Projection
+## Service Account Token Volume Projection
 
-기본 service account은 토큰 만료 시간이 무제한인 단점이 있음. 이를 해결하고자 kubernetes 버전 x 부터는 Service Account Token Volume Projection이라는 기능을 도입하였습니다.
+위에서 살펴본 것처럼 기본 쿠버네티스 서비스 어카운트가 제공하는 토큰은 내부에서의 활용만 고려하여 설계 되었기 때문에 외부 서비스에 엑세스 하기 위해서는 추가적인 정보들이 필요합니다. 쿠버네티스 1.12 이후 부터는 Service Account Token Volume Projection라는 기능을 제공하는데, 이를 통해 토큰을 마운트할 때 추가적인 정보를 주입시킬 수 있게 됩니다. 토큰의 만료 시간(일반적으로 `exp`로 표현됨)도 주입 가능합니다.
 
 <br>
 
-# IRSA(IAM Role for Service Account)
+# IRSA(IAM Role for Service Account) 프로세스
 
-IRSA는 Service Account Token Volume Projection 기능 활용하여 AWS가 구축한 프로토콜에 인증과 인가를 한것
+![](/assets/img/post_img/irsa_architecture.png)_IRSA High Level Architecture_
+
+IRSA(IAM Role for Service Account)는 [이전 글]()에서 예시로 든 Pod identity webhook을 활용하여 Service Account Token Volume Projection 기능 구현하고, 이를 쿠버네티스 파드 별로 임시 자격 증명을 언급하고 AWS 리소스들에 엑세스 가능 하도록 하는 일종의 프로토콜입니다.
 
 # 마무리
 
