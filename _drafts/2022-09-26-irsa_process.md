@@ -13,6 +13,8 @@ IRSA의 원리를 파헤쳐보자 시리즈의 두번째 글입니다. 지난 �
 
 이후 시리즈 글에서 더 자세히 살펴 보겠지만 pod identity webhook의 mutating 결과로 파드에 어떤 token이 주어지게 됩니다. 해당 token은 파드가 AWS의 특정 리소스와 통신하기 위한 임시 자격 증명을 발급 받는데에 사용됩니다. 이러한 일련의 과정은 OIDC(OpenID Connect)라는 프로토콜에 따라 진행됩니다. 최종적으로 pod에 주입되는 토큰은 id token이라고 할 수 있습니다. 그리고 OIDC는 OAuth2.0 위에서 작동합니다. 따라서 OAuth2.0과 OIDC는 함께 살펴 보아야 하는 친구들인 것이죠! 본 글에서는 IRSA를 이해하기 위한 배경지식으로 OAuth2.0과 OIDC에 대해서 살펴보겠습니다.
 
+사실 공부하면서, IRSA가 완벽하게 OAuth2.0이나 OIDC를 따르는 것은 아니라는 생각이 들었습니다. 그래서 본 글을 정리할지 말지 고민을 많이 했는데, OAuth2.0과 OIDC에서 나오는 개념들이 많이 등장하기 때문에 본 주제를 정리하기로 하였습니다. 머신러닝 엔지니어로서 언젠간 반드시 도움이 될 것이라고 생각하며...
+
 IRSA의 원리를 파헤쳐보자 시리즈
 
 1. [IRSA의 원리를 파헤쳐보자 1 - K8S Admission Webhook](https://gguguk.github.io/posts/admission_webhook/)
@@ -33,13 +35,32 @@ IRSA의 원리를 파헤쳐보자 시리즈
 
 #  OAuth2.0
 
-OAuth2.0(이하 OAuth)란 인가(authorization)를 위한 프로토콜입니다.
+### OAuth2.0이 왜 필요할까?
 
-Oauth2.0의 내용은 비교적 간단하게 작성하자... OIDC가 IRSA를 이해하는데 핵심이니까... OIDC 부분에 좀 힘쓰자.
+만일 우리가 하나의 웹서비스를 만들었다고 하죠. 그리고 그 서비스에 접속하는 사용자가 구글 캘린더에 등록한 일정을 보여주는 화면을 만들고 싶습니다. 그렇다면 우리 서비스는 사용자를 대신해서 구글에 접속해서 캘린더 정보를 가져올 수 있어야겠죠. 가장 쉬운 방법은 무엇일까요? 바로 우리의 구글 아이디와 비밀번호를 웹서비스에 전달해준 다음, 웹서비스가 그 정보를 그대로 이용해서 구글 캘린더의 정보를 가져오면 됩니다. 그러나 직관적으로 생각해봐도 이는 그리 좋은 방법은 아닙니다. 이러면 웹서비스가 사용자의 아이디와 비밀번호를 관리해야하는 부담감이 있고, 구글에서는 우리 웹서비스를 신뢰하기가 어렵죠.
 
-- 리소스 오너(resource owner)
+이러한 문제를 해결하기 위해 OAuth가 등장했습니다. OAuth는 최초 1.0 버전이 있은 뒤로, 현재 거론되는 OAuth는 대부분 OAuth2.0입니다(OAuth2.0은 하위 버전과 호환되지 않는다고 합니다). OAuth는 표준화된 방법과 절차에 따라 권한을 인가(authorization)하기 위한 프로토콜입니다. 혹시 '~로 로그인 하기'와 같은 소셜 로그인 기능을 사용해 보신적 있지 않으신가요? 사용자가 특정 웹사이트에 접속한 다음, '구글 아이디로 로그인 하기' 버튼을 누르면 아이디와 비밀번호를 입력하고, 어떤 권한을 허용할 것인지 묻는 창이 나타납니다. 그리고 허용하면 구글 아이디를 통해서 다른 웹사이트에 로그인이 이루어집니다. 이러한 과정은 결론적으로 특정 웹사이트에게 구글 사용자로서의 권한을 '위임'해준 것입니다. 지금은 매우 단순하게 표현했지만, 사실 매우 복잡한 과정이 밑단에서 이루어져야 하며 그 과정을 표준화한 것이 바로 OAuth2.0이라고 이해하시면 됩니다.
+
+<br>
+
+### OAuth2.0의 주체
+
+지금까지 사용자, 웹서비스, 구글 등의 표현을 사용하였는데요, 이를 OAuth 진영에서 사용하는 용어로 바꿔보겠습니다. 총 4가지의 주체가 있습니다.
+
+- 리소스 소유자(resource owner)
+  예시에서 '사용자'입니다. 리소스에 대한 접근 권한을 부여할 수 있는 주체입니다. 만일 리소스 소유자가 사람이라면 엔드 유저(end-user)라고도 불립니다.
 - 리소스 서버(resource sever)
+  예시에서 '구글'입니다. 리소스를 호스팅 하는 주체입니다. 엑세스 토큰(access token)을 확인하여 리소스에 접근하려는 요청을 허가할지 거부할지 결정 할수 있습니다. 아래에서 설명할 인가 서버와 합쳐서 표현하기도 합니다.
+- 클라이언트(client)
+  예시에서 '우리 웹서비스'입니다. 리소스 오너를 대신하여 리소스에 대한 접근을 요청 하는 주체입니다. 
 - 인가 서버(authorization server)
+  예시에서 '구글'입니다. 클라이언트에서 엑세스 토큰(access token)을 발급하는 주체입니다. 리소스 오너가 자신의 신분을 성공적으로 증명했을 때 엑세스 토큰을 발급 해 줍니다. 위에서 설명한 리소스 서버와 합쳐서 표현하기도 합니다.
+
+<br>
+
+### OAuth2.0의 동작 흐름
+
+
 
 ### access token
 
@@ -112,6 +133,17 @@ Oauth2.0의 내용은 비교적 간단하게 작성하자... OIDC가 IRSA를 이
 
 <br>
 
+### access token vs id token
+
+|             | access token                                                 | id token                                                     |
+| ----------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| audience    | Access tokens are meant to be read by the resource server(Access tokens must not be read or interpreted by the OAuth client. The OAuth client is not the intended audience of the token). | ID tokens are meant to be read by the OAuth client           |
+| information | Access tokens do not convey user identity or any other information about the user to the OAuth client. | An ID token contains information about what happened when a user authenticated.  The ID token may also contain information about the user such as their name or email address, although that is not a requirement of an ID token. |
+| usage       | Access tokens should *only* be used to make requests to the resource server. | [ID tokens](https://oauth.net/id-tokens-vs-access-tokens/) must *not* be used to make requests to the resource server. |
+| form        | [can be JWTs](https://oauth.net/2/jwt-access-tokens/) but may also be a random string | [JWTs](https://oauth.net/2/jwt/)                             |
+
+
+
 ### OIDC에서 id token을 발급 받는 과정
 
  다이어그램 그리기
@@ -177,6 +209,8 @@ OAuth 상에서 유저 인증 과정을 처리하려는 시도에 있어서 가�
 - [JWT(JSON Web Token)을 이용한 API 인증 - #1 개념 소개](https://bcho.tistory.com/999)
 - [OIDC (OpenID Connect)](https://ssup2.github.io/theory_analysis/OIDC/)
 - [인증과 인가 (권한 부여) 비교 – 특징 및 차이점](https://gguguk.github.io/posts/oidc/)
+- [OpenID(OIDC) 개념과 동작원리](https://hudi.blog/open-id/)
+- [OAuth 2.0 개념과 동작원리](https://hudi.blog/oauth-2.0/)
 
 
 
