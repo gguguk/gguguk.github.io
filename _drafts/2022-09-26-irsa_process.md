@@ -27,7 +27,7 @@ IRSA의 원리를 파헤쳐보자 시리즈
 
 ![authentication_and_authorization](https://www.okta.com/sites/default/files/styles/1640w_scaled/public/media/image/2020-10/Authentication_vs_Authorization.png?itok=uBFRCfww)_인증과 인가의 차이(출처: [okta](https://www.okta.com/kr/identity-101/authentication-vs-authorization/))_
 
-앞으로의 내용에 인증(authentication)과 인가(authorization)이라는 단어가 계속해서 등장할 것입니다. 인증과 인가는 한국어로 보면 큰 차이가 없어 보이는 단어인데요, 보완의 맥락에서는 엄연히 다른 개념입니다. 먼저 인증이란 사용자의 신원(identity)를 확인 및 검증 하는 행위입니다. 인증의 대표적인 예로는 아이디와 비밀번호를 통한 로그인이 있습니다. 한편 인가는 사용자에게 특정 리소스나 기능에 접근할 수 있는 권한 또는 권한의 범위(scope)를 부여하는 행위를 말합니다. 우리가 네이버에 로그인(인증)을 했다고 하더라도 다른 사람의 데이터에 접근할 수 있는 권한은 없습니다. 다시 말해 타인의 데이터에 접근하는 인가는 받지 못한 것입니다.
+앞으로의 내용에 인증(authentication)과 인가(authorization)이라는 단어가 계속해서 등장할 것입니다. 인증과 인가는 한국어로 보면 큰 차이가 없어 보이는 단어인데요, 보안의 맥락에서는 엄연히 다른 개념입니다. 먼저 인증이란 사용자의 신원(identity)를 확인 및 검증 하는 행위입니다. 인증의 대표적인 예로는 아이디와 비밀번호를 통한 로그인이 있습니다. 한편 인가는 사용자에게 특정 리소스나 기능에 접근할 수 있는 권한 또는 권한의 범위(scope)를 부여하는 행위를 말합니다. 우리가 네이버에 로그인(인증)을 했다고 하더라도 다른 사람의 데이터에 접근할 수 있는 권한은 없습니다. 다시 말해 타인의 데이터에 접근하는 인가는 받지 못한 것입니다.
 
 이어지는 글에서 더 자세히 설명하겠지만 인증과 인가는 각각 OIDC, OAuth2.0와 관련이 깊습니다. OIDC는 인증을 담당하는 프로토콜이며, OAuth2.0은 인가를 담당하는 프로토콜입니다. 그렇다고 해서 OIDC와 OAuth2.0이 아예 별개의 개념이진 않습니다. 오히려 서로는 매우 깊은 관련이 있습니다.
 
@@ -36,6 +36,8 @@ IRSA의 원리를 파헤쳐보자 시리즈
 #  OAuth2.0
 
 ### OAuth2.0이 왜 필요할까?
+
+![](/assets/img/post_img/oauth_example.png){:width="350"}_카카오, 페이스북, 구글, 애플 아이디로 다른 사이트에 로그인 할 수 있습니다._
 
 만일 우리가 하나의 웹서비스를 만들었다고 하죠. 그리고 그 서비스에 접속하는 사용자가 구글 캘린더에 등록한 일정을 보여주는 화면을 만들고 싶습니다. 그렇다면 우리 서비스는 사용자를 대신해서 구글에 접속해서 캘린더 정보를 가져올 수 있어야겠죠. 가장 쉬운 방법은 무엇일까요? 바로 우리의 구글 아이디와 비밀번호를 웹서비스에 전달해준 다음, 웹서비스가 그 정보를 그대로 이용해서 구글 캘린더의 정보를 가져오면 됩니다. 그러나 직관적으로 생각해봐도 이는 그리 좋은 방법은 아닙니다. 이러면 웹서비스가 사용자의 아이디와 비밀번호를 관리해야하는 부담감이 있고, 구글에서는 우리 웹서비스를 신뢰하기가 어렵죠.
 
@@ -47,22 +49,47 @@ IRSA의 원리를 파헤쳐보자 시리즈
 
 지금까지 사용자, 웹서비스, 구글 등의 표현을 사용하였는데요, 이를 OAuth 진영에서 사용하는 용어로 바꿔보겠습니다. 총 4가지의 주체가 있습니다.
 
-- 리소스 소유자(resource owner)
+- 리소스 소유자(resource owner):
+  
   예시에서 '사용자'입니다. 리소스에 대한 접근 권한을 부여할 수 있는 주체입니다. 만일 리소스 소유자가 사람이라면 엔드 유저(end-user)라고도 불립니다.
-- 리소스 서버(resource sever)
+- 리소스 서버(resource sever):
+  
   예시에서 '구글'입니다. 리소스를 호스팅 하는 주체입니다. 엑세스 토큰(access token)을 확인하여 리소스에 접근하려는 요청을 허가할지 거부할지 결정 할수 있습니다. 아래에서 설명할 인가 서버와 합쳐서 표현하기도 합니다.
-- 클라이언트(client)
-  예시에서 '우리 웹서비스'입니다. 리소스 오너를 대신하여 리소스에 대한 접근을 요청 하는 주체입니다. 
-- 인가 서버(authorization server)
+  
+  > 리소스 서버에게 클라이언트가 누구인지 미리 알려주는 과정이 선행되어야 OAuth 2.0 프로토콜이 제대로 동작합니다. 이는 리소스 서버에서 client id, client secret를 발급받고, redirect uri를 등록 해두는 행위를 말합니다. 아래 OAuth2.0 동작 흐름에서 더 자세히 설명하겠습니다.
+- 클라이언트(client):
+  
+  예시에서 '우리 웹서비스'입니다. 리소스 오너를 대신하여 리소스에 대한 접근을 요청 하는 주체입니다.
+  
+  > 단어 때문에 리소스 소유자와 클라이언트를 헷갈릴 수도 있습니다. 그러나 클라이언트라는 단어는 상대적인 개념입니다. 우리 웹서비스는 리소스 서버나 인가 서버 입장에서 보았을 때 클라이언트이므로 이러한 이름을 갖게 되었다고 생각할 수 있습니다.
+- 인가 서버(authorization server):
+  
   예시에서 '구글'입니다. 클라이언트에서 엑세스 토큰(access token)을 발급하는 주체입니다. 리소스 오너가 자신의 신분을 성공적으로 증명했을 때 엑세스 토큰을 발급 해 줍니다. 위에서 설명한 리소스 서버와 합쳐서 표현하기도 합니다.
 
 <br>
 
-### OAuth2.0의 동작 흐름
+### OAuth2.0의 동작 흐름(메커니즘)
+
+먼저, OAuth2.0은 클라이언트가 리소스 소유자에게 인가를 얻어서 리소스 소유자 대신에 리소스 서버에 접근할 수 있는 방법이나 절차가 정의된 프로토콜이라는 사실을 잊지 말아야 합니다. 그리고 클라이언트는 인가를 잘 받았다는 징표로서 최종적으로 access token이라는 것을 얻을 수 있게되고, 이를 통해 정해진 권한 범위(scope) 내에서 리소스 서버의 자원을 마음껏 이용할 수 있게 되는 것입니다. OAuth2.0은 클라언트가 access token을 발급 받는 방법에 대한 복잡한 약속이라고 정의할 수 있겠습니다.
+
+클라이언트가 access token, 즉 인가를 받기 위한 방법은 여러가지가 있습니다. 각 방식마다 장단점이 존재한다고 하는데, 더 자세한 내용은 [관련 자료](https://surprisecomputer.tistory.com/41)를 참고해주세요. 본 글에서는 Authorization Code Grant 방식에 집중해서 살펴보겠습니다.
+
+- [Authorization Code Grant](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1): 클라이언트가 웹 서버인 경우 사용. 안정성이 높아 일반적으로 많이 사용하는 방식.
+- [Implicit Grant](https://datatracker.ietf.org/doc/html/rfc6749#section-4.2): 인가 서버에서 클라이언트에 곧바로 access token을 발급함. 브라우저에 access token이 그대로 노출되기 때문에 안전하지 않음.
+- [Resource Owner Password Credentials](https://datatracker.ietf.org/doc/html/rfc6749#section-4.3): 리소스 소유자의 인증 정보가 클라이언트에 전송된 다음 바로 인증 서버로 전송해도 되는 경우 사용
+- [Client Credentials Grant](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4): 클라이언트가 리소스 소유자와 동일할 경우 사용
+
+<br>
+
+![](/assets/img/post_img/oauth2_flow.png)_OAuth2.0: Authorization Code Grant 흐름도_
+
+1. 먼저 리소스 서버에에 우리 웹서비스인 클라이언트를 등록해야 합니다.
 
 
 
 ### access token
+
+엑세스 토큰 교환 과정을 안전하게 하기 위해서는 authorization code를 발급 받고, 이를 신뢰할 수 있는 백엔드에 보낸뒤 백엔드에서 token enpoint에 요청을 해서 access token을 교환하는 과정으로 이루어져야 한다. 이렇게 하면 브라우저에서 직접적으로 access token을 교환하지 않기 때문에 보다 안전한 방법이라고 할 수 있다. implicit grant는 클라이언트가 곧바로 access token을 발급 받기 때문에 브라우저 상에 access token이 그대로 노출되버린다.
 
 
 
@@ -211,6 +238,10 @@ OAuth 상에서 유저 인증 과정을 처리하려는 시도에 있어서 가�
 - [인증과 인가 (권한 부여) 비교 – 특징 및 차이점](https://gguguk.github.io/posts/oidc/)
 - [OpenID(OIDC) 개념과 동작원리](https://hudi.blog/open-id/)
 - [OAuth 2.0 개념과 동작원리](https://hudi.blog/oauth-2.0/)
+- [OAuth 개념 및 동작 방식 이해하기](https://tecoble.techcourse.co.kr/post/2021-07-10-understanding-oauth/)
+- [OAuth 2.0 기반 인증 방식](https://surprisecomputer.tistory.com/41)
+- [OAuth 2.0 - Authorization code Grant](https://yonghyunlee.gitlab.io/temp_post/oauth-authorization-code/)
+- [OAuth 2.0 - Implicit Grant](https://yonghyunlee.gitlab.io/temp_post/oauth-Implicit/)
 
 
 
