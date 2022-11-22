@@ -1,25 +1,26 @@
 ---
-title: IRSA의 원리를 파헤쳐보자 2 - OAuth2.0과 OIDC(OpenID Connect)
+title: IRSA의 원리를 파헤쳐보자 2 - OAuth2.0
 author: Gukwon Koo
 categories: [MLOps, Kubernetes]
 tags: [kubernetes, k8s, oauth2.0, oidc, irsa]
 pin: false
 math: true
 comments: true
-date: 2022-09-26 22:12:00 +0900
+date: 2022-11-22 20:04:00 +0900
 ---
 
-IRSA의 원리를 파헤쳐보자 시리즈의 두번째 글입니다. 지난 시간에는 IRSA를 가능하게 하는 가장 근본적인 컴포넌트인 [Admission Webhook](https://gguguk.github.io/posts/admission_webhook/)에 대해서 살펴 보았습니다. EKS 클러스터를 생성하면 pod identity webhook이라는 admission webhook이 함께 설치됩니다. pod identity webhook은 `kube-apiserver`에 파드 생성 요청이 도착할 경우 해당 파드에 적용된 service account에 iam role arn이 설정되어 있는 경우 요청 내용을 IRSA를 가능하도록 변경하는 mutating webhook이었습니다.
+IRSA의 원리를 파헤쳐보자 시리즈의 두번째 글입니다. 지난 시간에는 IRSA를 가능하게 하는 가장 근본적인 컴포넌트인 [Admission Webhook](https://gguguk.github.io/posts/admission_webhook/)에 대해서 살펴 보았습니다. 이후 시리즈 글에서 더 자세히 살펴 보겠지만 pod identity webhook의 mutating 결과로 파드에 어떤 token이 주어지게 됩니다. 이 token은 파드가 AWS의 특정 리소스와 통신하기 위한 임시 자격 증명을 발급 받는데에 사용됩니다. 
 
-이후 시리즈 글에서 더 자세히 살펴 보겠지만 pod identity webhook의 mutating 결과로 파드에 어떤 token이 주어지게 됩니다. 해당 token은 파드가 AWS의 특정 리소스와 통신하기 위한 임시 자격 증명을 발급 받는데에 사용됩니다. 이러한 일련의 과정은 OIDC(OpenID Connect)라는 프로토콜에 따라 진행됩니다. 최종적으로 pod에 주입되는 토큰은 id token이라고 할 수 있습니다. 그리고 OIDC는 OAuth2.0 위에서 작동합니다. 따라서 OAuth2.0과 OIDC는 함께 살펴 보아야 하는 친구들인 것이죠! 본 글에서는 IRSA를 이해하기 위한 배경지식으로 OAuth2.0과 OIDC에 대해서 살펴보겠습니다.
+이러한 일련의 과정은 OIDC(OpenID Connect)라는 프로토콜의 개념에 기반하여 이루어집니다. 그러나 OIDC를 이해하기 위해서는 먼저 OAuth2.0를 이해해야 합니다. OIDC는 OAuth2.0 위에서 동작하는 프로토콜이기 때문입니다. 따라서 이번 글에서는 IRSA를 이해하기 위한 배경지식으로서 OAuth2.0을 (수박 겉핥기 식으로 🍉) 살펴보겠습니다
 
-사실 공부하면서, IRSA가 완벽하게 OAuth2.0이나 OIDC를 따르는 것은 아니라는 생각이 들었습니다. 그래서 본 글을 정리할지 말지 고민을 많이 했는데, OAuth2.0과 OIDC에서 나오는 개념들이 많이 등장하기 때문에 본 주제를 정리하기로 하였습니다. 머신러닝 엔지니어로서 언젠간 반드시 도움이 될 것이라고 생각하며...
+사실 공부하면서, IRSA가 완벽하게 OAuth2.0이나 OIDC를 따르는 것은 아니라는 생각이 들었습니다. 그래서 본 글을 정리할지 말지 고민을 많이 했는데, OAuth2.0과 OIDC에서 나오는 개념들이 많이 등장하기 때문에 본 주제를 정리하기로 하였습니다. 머신러닝 엔지니어로서 언젠간 반드시 도움이 될 것이라고 생각하며... 😭
 
-IRSA의 원리를 파헤쳐보자 시리즈
+IRSA의 원리를 파헤쳐보자 시리즈 - 
 
 1. [IRSA의 원리를 파헤쳐보자 1 - K8S Admission Webhook](https://gguguk.github.io/posts/admission_webhook/)
-2. IRSA의 원리를 파헤쳐보자 2 - OAuth2.0과 OIDC(OpenID Connect)
-3. IRSA의 원리를 파헤쳐보자 3 - K8S Sevice Account와 Service Account Token Volume Projection
+2. IRSA의 원리를 파헤쳐보자 2 - OAuth2.0
+3. IRSA의 원리를 파헤쳐보자 3 - OIDC
+4. IRSA의 원리를 파헤쳐보자 4 - K8S Sevice Account와 Service Account Token Volume Projection
 
 <br>
 
@@ -35,7 +36,7 @@ IRSA의 원리를 파헤쳐보자 시리즈
 
 #  OAuth2.0
 
-### OAuth2.0이 왜 필요할까?
+### OAuth2.0, 왜 필요할까?
 
 ![](/assets/img/post_img/oauth_example.png){:width="350"}_카카오, 페이스북, 구글, 애플 아이디로 다른 사이트에 로그인 할 수 있습니다._
 
@@ -70,9 +71,9 @@ IRSA의 원리를 파헤쳐보자 시리즈
 
 ### OAuth2.0의 동작 흐름(메커니즘)
 
-먼저, OAuth2.0은 클라이언트가 리소스 소유자에게 인가를 얻어서 리소스 소유자 대신에 리소스 서버에 접근할 수 있는 방법이나 절차가 정의된 프로토콜이라는 사실을 잊지 말아야 합니다. 그리고 클라이언트는 인가를 잘 받았다는 징표로서 최종적으로 access token이라는 것을 얻을 수 있게되고, 이를 통해 정해진 권한 범위(scope) 내에서 리소스 서버의 자원을 마음껏 이용할 수 있게 되는 것입니다. OAuth2.0은 클라언트가 access token을 발급 받는 방법에 대한 복잡한 약속이라고 정의할 수 있겠습니다.
+먼저, OAuth2.0은 클라이언트가 리소스 소유자에게 인가를 얻어서 리소스 소유자 대신에 리소스 서버에 접근할 수 있는 방법이나 절차를 정의한 프로토콜이라는 사실을 잊지 말아야 합니다. 클라이언트는 인가를 잘 받았다는 징표로서 최종적으로 access token이라는 것을 얻을 수 있게되고, 이를 통해 정해진 권한 범위(scope) 내에서 리소스 서버의 자원을 마음껏 이용할 수 있게 되는 것입니다.
 
-클라이언트가 access token, 즉 인가를 받기 위한 방법은 여러가지가 있습니다. 각 방식마다 장단점이 존재한다고 하는데, 더 자세한 내용은 [관련 자료](https://surprisecomputer.tistory.com/41)를 참고해주세요. 본 글에서는 Authorization Code Grant 방식에 집중해서 살펴보겠습니다.
+클라이언트가 access token, 즉 인가를 받기 위한 방법은 여러가지가 있습니다. 각 방식마다 장단점이 존재한다고 하는데, 더 자세한 내용은 [관련 자료](https://surprisecomputer.tistory.com/41)를 참고해주세요(구체적인 내용은 더 공부하고 정리해 보겠습니다). 본 글에서는 Authorization Code Grant 방식에 집중해서 살펴보겠습니다.
 
 - [Authorization Code Grant](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1): 클라이언트가 웹 서버인 경우 사용. 안정성이 높아 일반적으로 많이 사용하는 방식.
 - [Implicit Grant](https://datatracker.ietf.org/doc/html/rfc6749#section-4.2): 인가 서버에서 클라이언트에 곧바로 access token을 발급함. 브라우저에 access token이 그대로 노출되기 때문에 안전하지 않음.
@@ -83,7 +84,54 @@ IRSA의 원리를 파헤쳐보자 시리즈
 
 ![](/assets/img/post_img/oauth2_flow.png)_OAuth2.0: Authorization Code Grant 흐름도_
 
-1. 먼저 리소스 서버에에 우리 웹서비스인 클라이언트를 등록해야 합니다.
+<br>
+
+1. 리소스 서버에 우리 웹서비스를 클라이언트로 등록
+
+   ![](/assets/img/post_img/google_oauth_client.png)_client_id, client_secret을 발급받고, redirect_uri를 등록합니다._
+
+   우리 웹서비스를 클라이언트를 등록하고 `client_id`와 `client_secret`을 발급 받아둡니다. 그리고 리소스 소유자가 인증에 성공 했을 때 authorization code와 함께 사용자를 돌려 보낼 `redirect_uri`를 설정해야합니다. `redirect_uri`는 기본적으로 보안을 위해 https를 사용해야하지만 localhost의 경우는 예외적으로 http로 설정할 수 있습니다. `client_id`와 `client_secret` 또한 인가를 받으려는 클라이언트가 사전에 승인된(등록된) 대상인지를 확인하고 `access_token`을 발급하는데 사용됩니다. `client_id`는 공개되어도 상관 없지만 `client_secret`은 절대 유출되면 안 되는 정보입니다.
+
+   <br>
+
+2. 로그인 요청
+
+   ![](/assets/img/post_img/oauth_login.png)_리소스 소유자가 로그인 하게하고, 로그인 성공시 허용할 권한 동의 여부를 묻는다(인가)._
+
+   리소스 소유자가 클라이언트의 웹서비스에서 '구글 아이디로 로그인 하기' 버튼을 클릭합니다. 그러면 클라이언트는 리소스 소유자를 인가 서버의 로그인을 담당하는 웹페이지로 보냅니다(예를 들어 구글 로그인 화면 등). 이 때 `client_id`, `redirect_uri`, `response_type`, `scope` 등의 파라미터를 쿼리 스트링을 URL에 포함합니다. 요청은 다음과 같은 형태입니다.
+
+   ```http
+   https://accounts.google.com/o/oauth2/v2/auth?
+    scope=scope&
+    response_type=code&
+    redirect_uri=http://localhost:5000/callback&
+    client_id=client_id
+   ```
+
+   쿼리 스트링에는 보다 [다양한 파라미터](https://developers.google.com/identity/protocols/oauth2/web-server#httprest_1)를 포함할 수 있지만, 필수적인 파라미터는 다음과 같습니다.
+
+   - `client_id`: 리소스 서버에 애플리케이션(웹서비스)를 등록하고 발급 받은 클라이언트 id입니다.
+   - `redirect_uri`: 리소스 소유자가 로그인에 성공할 경우 리소스 소유자를 리디렉션 하는 주소입니다. 애플리케이션을 등록할 때 설정해둔 값과 정확히 일치해야 합니다. 그렇지 않을 경우 `redirect_uri_mismatch` 에러가 발생하게 됩니다.
+   - `response_type`: authorization code grant 방식으로 진행할 경우 `code`라고 지정합니다.
+   - `scope`: 인가를 해줄 권한의 범위를 뜻합니다. 로그인에 성공한 후에 사용자에게 권한 동의 여부를 묻는데, 이와 관련된 파라미터입니다.
+
+   <br>
+
+3. authorization code 발급
+   <br>
+
+4. access token 교환 요청
+   <br>
+
+5. access token 발급
+   <br>
+
+6. access token으로 리소스 요청
+   <br>
+
+7. access token 검증 후 리소스 응답
+
+
 
 
 
@@ -242,6 +290,8 @@ OAuth 상에서 유저 인증 과정을 처리하려는 시도에 있어서 가�
 - [OAuth 2.0 기반 인증 방식](https://surprisecomputer.tistory.com/41)
 - [OAuth 2.0 - Authorization code Grant](https://yonghyunlee.gitlab.io/temp_post/oauth-authorization-code/)
 - [OAuth 2.0 - Implicit Grant](https://yonghyunlee.gitlab.io/temp_post/oauth-Implicit/)
+- [OAuth 2.0을 사용하여 Google API에 액세스하기](https://developers.google.com/identity/protocols/oauth2)
+- [웹 서버 애플리케이션용 OAuth 2.0 사용](https://developers.google.com/identity/protocols/oauth2/web-server)
 
 
 
