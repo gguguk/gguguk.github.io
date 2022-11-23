@@ -125,11 +125,15 @@ IRSA의 원리를 파헤쳐보자 시리즈 -
    <br>
    
 4. access token 교환 요청
+   
+   authorization code는 임시 코드라고 하였습니다. 클라이언트는 access token을 발급 받기위해서 authorization code, client_id, client_secret을 함께 실어서 token endpoint에 전송합니다. 이러한 과정은 엑세스 토큰 교환(exchange)이라고도 합니다.
    <br>
-
+   
 5. access token 발급
+   
+   인증 서버는 authorization code, client_id, client_secret을 검증하고 access_token을 발급해줍니다. 이 토큰은 매우 중요하므로 절대 유출이 되어서는 안됩니다. 클라이언트는 이를 자신들의 안전한 백엔드 DB에 저장해두어야 합니다.
    <br>
-
+   
 6. access token으로 리소스 요청
    <br>
 
