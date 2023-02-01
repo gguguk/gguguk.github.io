@@ -29,19 +29,106 @@ date: 2021-10-27 11:50:00 +0900
 
 **특징**
 
-컴파일 언어는 소스 코드를 다음의 과정을 거쳐서 기계어로 변환합니다.
+컴파일 언어는 소스 코드를 다음의 과정을 거쳐서 기계어로 변환합니다. 만일 다음과 같이 C언어로 작성된 코드(`test.c`)가 있다고 가정해 봅시다. 컴파일 과정에 따라 어떻게 변화하는지 살펴 보겠습니다.
+
+```c
+#include <stdio.h>
+
+int main()
+{
+    printf("hello world!\n");
+    return 0;
+}
+```
 
 - precompile:
 
-  precompile 단계에서는 본격적인 compile에 앞서 사전 준비를 하는 단계입니다. 예를 들어 C언어에서 `#include <stdio.h>`와 같은 문법은 소스 코드에서 다른 헤더 파일을 참조하라는 의미인데요. 이러한 파일들은 여전히 C 소스 코드 형태이며 stdio.h 파일 내용을 소스코드에 포함 시키는 행위가 이루어집니다.
+  precompile 단계에서는 본격적인 compile에 앞서 사전 준비를 하는 단계입니다. 예를 들어 C언어에서 `#include <stdio.h>`와 같은 문법은 소스 코드에서 다른 헤더 파일을 참조하라는 의미인데요. 이러한 파일들은 여전히 C 소스 코드 형태이며 `stdio.h` 파일 내용을 소스코드에 포함 시키는 행위가 이루어집니다. `test.c` 소스코드는 아래의 명령어를 통해 전처리를 거친 `test.i` 파일로 변환 할 수 있습니다.
 
-- compile: 
+  ```bash
+  gcc -E test.c -o test.i
+  ```
 
-  compile은 소스코드를 기계어로 변환하는 첫 출발점입니다. compile의 결과 소스 코드는 [어셈블리어](https://ko.wikipedia.org/wiki/어셈블리어)로 변환됩니다. 어셈블리어란, 고수준 언어와 기계어의 중간에 존재하는 저수준 언어입니다. 어셈블리어는 C와 같은 고수준 언어에 비해 더욱 기계에게 친숙한 언어입니다. 기계어는 cpu가 읽어서 실행할 수 있는 0과 1로 이루어진 명령어의 조합인데요. 이를 사람이 읽고 해석하기가 어렵습니다. 어셈블리어는 기계어를 사람이 좀더 쉽게 읽을 수 있는 기호로 표현한 언어입니다. 어셈블리어의 각 명령문을 instruction이라고 하는데, 기계어와 1:1로 매칭이 되며 CPU 제조사 마다 instruction이 체계가 다릅니다.
+  
+
+  `test.i` 파일을 확인해 보면 다음과 같습니다. `stdio.h`에 있던 모든 소스 코드 파일이 `test.c` 파일에 합쳐져 있습니다. 중요한 점은 전처리 과정이 끝나도 여전히 소스 코드 형태, 즉 고급 언어로 이루어져 있다는 것입니다.
+
+  
+
+  ```c
+  typedef signed char __int8_t;
+  ...
+  int printf(const char * restrict, ...) __attribute__((__format__ (__printf__, 1, 2)));
+  ...
+  int main()
+  {
+      printf("hello world!\n");
+      return 0;
+  }
+  ```
+
+- compile:
+
+  compile은 소스코드를 기계어로 변환하는 첫 출발점입니다. compile의 결과, 소스 코드는 [어셈블리어](https://ko.wikipedia.org/wiki/어셈블리어)로 변환됩니다. 어셈블리어란, 고수준 언어와 기계어의 중간에 존재하는 저수준 언어입니다. 어셈블리어는 C와 같은 고수준 언어에 비해 더욱 기계에게 친숙한 언어입니다. 기계어는 cpu가 읽어서 실행할 수 있는 0과 1로 이루어진 명령어의 조합인데요. 이를 사람이 읽고 해석하기가 어렵습니다. 어셈블리어는 기계어를 사람이 좀더 쉽게 읽을 수 있는 기호로 표현한 언어입니다. 어셈블리어의 각 명령문을 instruction이라고 하는데, 기계어와 1:1로 매칭이 되며 CPU 제조사 마다, 사용하는 컴파일러에 따라 instruction이 다릅니다.
+
+  아래 명령어로 전처리된 파일을 컴파일 하여 어셈블리어로 작성된 파일을 얻을 수 있습니다.
+
+  ```bash
+  gcc -S test.i -o test.s
+  ```
+
+  `test.s` 파일을 열어 보면 다음과 같이 어셈블리어로 작성되어 있고, 뭔가 명령어(instruction) 형태(`pushq`, `movb`, `addq` 등)로 이루어졌음을 알 수 있습니다.
+
+  ```c
+  	.section	__TEXT,__text,regular,pure_instructions
+  	.build_version macos, 10, 15, 4	sdk_version 10, 15, 4
+  	.globl	_main                   ## -- Begin function main
+  	.p2align	4, 0x90
+  _main:                                  ## @main
+  	.cfi_startproc
+  ## %bb.0:
+  	pushq	%rbp
+  	.cfi_def_cfa_offset 16
+  	.cfi_offset %rbp, -16
+  	movq	%rsp, %rbp
+  	.cfi_def_cfa_register %rbp
+  	subq	$16, %rsp
+  	movl	$0, -4(%rbp)
+  	leaq	L_.str(%rip), %rdi
+  	movb	$0, %al
+  	callq	_printf
+  	xorl	%ecx, %ecx
+  	movl	%eax, -8(%rbp)          ## 4-byte Spill
+  	movl	%ecx, %eax
+  	addq	$16, %rsp
+  	popq	%rbp
+  	retq
+  	.cfi_endproc
+                                          ## -- End function
+  	.section	__TEXT,__cstring,cstring_literals
+  L_.str:                                 ## @.str
+  	.asciz	"hello world!\n"
+  
+  
+  .subsections_via_symbols
+  
+  ```
+
+  
 
 - assembling: 
 
   어셈블리어를 0과 1로 이루어진 기계어로 변환하는 과정입니다. assembling 과정을 거친 아웃풋을 오브젝트 코드(object code)라고 합니다. 이 과정을 거쳐야만 cpu가 실제로 명령을 수행할 수 있게 됩니다. 만일 컴파일할 소스 코드가 하나라면 컴파일 과정은 여기까지만 진행됩니다. 혹시 컴파일할 코드가 여러개라면 linking 과정이 필요합니다.
+  다음의 명령어로 어셈블리어를 기계어로 변환할 수 있습니다.
+
+  ```bash
+  gcc test.s -o test.o
+  ```
+
+  생성된 `test.o` 파일을 확인해 보면 사람이 읽을 수 있는 형태가 아님을 확인할 수 있습니다.
+  ```c
+  ^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^    @^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@    ^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^    @^@^@^@UH<89>åH<83>ì^PÇEü^@^@^@^@H<8d>=4^@^@^@°^@è^M^@^@^@1É<89>Eø<89>ÈH<83>Ä^P]Ãÿ%p^P^@^@L<8d>^]q^P^@^@ASÿ%a^@^@    ^@<90>h^@^@^@^@éæÿÿÿhello world!
+  ```
 
 - linking:
 
